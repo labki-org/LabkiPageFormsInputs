@@ -1,0 +1,186 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  lint-php:
+    name: PHP lint & code style
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, intl
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: parallel-lint
+        run: composer exec parallel-lint -- . --exclude vendor --exclude node_modules --exclude resources/lib
+
+      - name: minus-x check
+        run: composer exec minus-x -- check .
+
+      - name: PHPCS
+        run: composer exec phpcs -- -sp
+
+  js-sanity:
+    name: JS sanity (parser/serializer/offsetFor)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run shared-JS sanity check
+        run: node tests/scripts/check-shared-js.js
+
+      - name: Syntax-check resource modules
+        run: |
+          for f in resources/modules/*.js; do
+            node --check "$f"
+          done
+
+      - name: Validate JSON files
+        run: |
+          for f in extension.json composer.json i18n/*.json; do
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" "$f"
+            echo "OK $f"
+          done
+
+  integration-test:
+    name: Integration (${{ matrix.mw }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mw: REL1_43
+            php: '8.1'
+            smw: '6.0'
+            pf: '6.0'
+          - mw: REL1_44
+            php: '8.3'
+            smw: '6.0'
+            pf: '6.0'
+
+    services:
+      db:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: wiki
+          MARIADB_USER: wiki
+          MARIADB_PASSWORD: wiki_pass
+          MARIADB_ROOT_PASSWORD: root_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, mysqli, pdo_mysql
+          tools: composer:v2
+
+      - name: Cache MediaWiki installation
+        id: mw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/mediawiki
+          key: mw-${{ matrix.mw }}-smw${{ matrix.smw }}-pf${{ matrix.pf }}-php${{ matrix.php }}-${{ hashFiles('.github/workflows/installMediaWiki.sh') }}
+
+      - name: Checkout extension
+        uses: actions/checkout@v4
+        with:
+          path: LabkiPageFormsInputs
+
+      - name: Install MediaWiki + extensions
+        if: steps.mw-cache.outputs.cache-hit != 'true'
+        env:
+          MW_BRANCH: ${{ matrix.mw }}
+          SMW_VERSION: ${{ matrix.smw }}
+          PF_VERSION: ${{ matrix.pf }}
+        run: bash LabkiPageFormsInputs/.github/workflows/installMediaWiki.sh "$MW_BRANCH" "$SMW_VERSION" "$PF_VERSION"
+
+      - name: Link extension into MediaWiki
+        run: ln -s "$GITHUB_WORKSPACE/LabkiPageFormsInputs" ~/mediawiki/extensions/LabkiPageFormsInputs
+
+      - name: Install MediaWiki database
+        run: |
+          rm -f ~/mediawiki/LocalSettings.php
+          php ~/mediawiki/maintenance/install.php \
+            --dbserver=127.0.0.1 \
+            --dbname=wiki \
+            --dbuser=wiki \
+            --dbpass=wiki_pass \
+            --pass=CITestPassword123! \
+            --scriptpath="" \
+            "LabkiPageFormsInputsTest" \
+            "Admin"
+
+      - name: Configure LocalSettings
+        run: echo "require_once '$GITHUB_WORKSPACE/LabkiPageFormsInputs/tests/LocalSettings.ci.php';" >> ~/mediawiki/LocalSettings.php
+
+      - name: Update database schema
+        run: php ~/mediawiki/maintenance/update.php --quick
+
+      - name: Setup SMW store
+        run: php ~/mediawiki/extensions/SemanticMediaWiki/maintenance/setupStore.php
+
+      - name: Run integration tests
+        run: |
+          php ~/mediawiki/tests/phpunit/phpunit.php \
+            --configuration "$GITHUB_WORKSPACE/LabkiPageFormsInputs/tests/phpunit/integration.xml" \
+            --testdox
+
+  ci-summary:
+    name: CI summary
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    needs: [lint-php, js-sanity, integration-test]
+    steps:
+      - name: Fail if any required job failed
+        env:
+          LINT_RESULT: ${{ needs.lint-php.result }}
+          JS_RESULT: ${{ needs.js-sanity.result }}
+          INTEG_RESULT: ${{ needs.integration-test.result }}
+        run: |
+          echo "lint-php: $LINT_RESULT"
+          echo "js-sanity: $JS_RESULT"
+          echo "integration-test: $INTEG_RESULT"
+          if [ "$LINT_RESULT" != "success" ] || [ "$JS_RESULT" != "success" ] || [ "$INTEG_RESULT" != "success" ]; then
+            echo "One or more required jobs failed."
+            exit 1
+          fi

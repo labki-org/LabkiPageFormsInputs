@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"Daniel Aharoni"
+		]
+	},
+	"labkipageformsinputs-desc": "{{desc|name=LabkiPageFormsInputs|url=https://github.com/labki-org/LabkiPageFormsInputs}}",
+	"labkipageformsinputs-date-placeholder": "Placeholder shown in the date input field. Format string for ISO 8601 date.",
+	"labkipageformsinputs-time-placeholder": "Placeholder shown in the time input field. Format string for 24-hour time.",
+	"labkipageformsinputs-tz-placeholder": "Placeholder shown in the timezone selector when no zone has been chosen.",
+	"labkipageformsinputs-tz-wiki-local": "Label for the option that records the value without a timezone offset (interpreted as the wiki's local time).",
+	"labkipageformsinputs-tz-shortlist-label": "Group label for the curated shortlist of common timezones in the picker.",
+	"labkipageformsinputs-tz-all-zones": "Button label that expands the timezone selector to show the full IANA list. Trailing ellipsis is intentional."
+}

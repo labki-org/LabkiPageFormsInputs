@@ -1,0 +1,10 @@
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+.phpunit.result.cache
+.phpcs-cache
+*.swp
+.DS_Store
+# Docker dev env artifacts (cache dir created at runtime by LocalSettings.test.php)
+/cache-labki-pf-inputs/

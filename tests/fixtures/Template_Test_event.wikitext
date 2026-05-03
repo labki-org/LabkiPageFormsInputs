@@ -1,0 +1,13 @@
+<noinclude>
+This is the template used by [[Form:Test event]].
+</noinclude><includeonly>{| class="wikitable"
+! Field !! Value
+|-
+| Starts || [[Has test datetime::{{{starts|}}}]]
+|-
+| On (date only) || [[Has test date::{{{on|}}}]]
+|-
+| At (time only) || [[Has test time::{{{at|}}}]]
+|}
+[[Category:Test event]]
+</includeonly>

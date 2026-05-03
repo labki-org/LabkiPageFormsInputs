@@ -1,0 +1,97 @@
+{
+	"name": "LabkiPageFormsInputs",
+	"version": "0.1.1",
+	"author": [
+		"Aharoni Lab",
+		"Daniel Aharoni"
+	],
+	"url": "https://github.com/labki-org/LabkiPageFormsInputs",
+	"descriptionmsg": "labkipageformsinputs-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.39.0",
+		"extensions": {
+			"PageForms": ">= 6.0"
+		}
+	},
+	"AutoloadNamespaces": {
+		"Labki\\PageFormsInputs\\": "includes/"
+	},
+	"MessagesDirs": {
+		"LabkiPageFormsInputs": [
+			"i18n"
+		]
+	},
+	"Hooks": {
+		"PageForms::FormPrinterSetup": "Labki\\PageFormsInputs\\Hooks::onPageFormsFormPrinterSetup",
+		"BeforePageDisplay": "Labki\\PageFormsInputs\\Hooks::onBeforePageDisplay"
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "resources",
+		"remoteExtPath": "LabkiPageFormsInputs/resources"
+	},
+	"ResourceModules": {
+		"ext.labki.pfInputs.shared": {
+			"scripts": [
+				"modules/ext.labki.shared.js",
+				"modules/ext.labki.tzData.js"
+			],
+			"styles": [
+				"modules/ext.labki.styles.less"
+			],
+			"messages": [
+				"labkipageformsinputs-tz-shortlist-label",
+				"labkipageformsinputs-tz-all-zones",
+				"labkipageformsinputs-tz-wiki-local"
+			]
+		},
+		"ext.labki.pfInputs.dateTimeTz": {
+			"scripts": [
+				"modules/ext.labki.dateTimeTz.js"
+			],
+			"dependencies": [
+				"ext.labki.pfInputs.shared",
+				"ext.labki.pfInputs.flatpickr"
+			],
+			"messages": [
+				"labkipageformsinputs-date-placeholder",
+				"labkipageformsinputs-time-placeholder",
+				"labkipageformsinputs-tz-placeholder",
+				"labkipageformsinputs-tz-all-zones"
+			]
+		},
+		"ext.labki.pfInputs.dateOnly": {
+			"scripts": [
+				"modules/ext.labki.dateOnly.js"
+			],
+			"dependencies": [
+				"ext.labki.pfInputs.shared",
+				"ext.labki.pfInputs.flatpickr"
+			]
+		},
+		"ext.labki.pfInputs.timeOnly": {
+			"scripts": [
+				"modules/ext.labki.timeOnly.js"
+			],
+			"dependencies": [
+				"ext.labki.pfInputs.shared",
+				"ext.labki.pfInputs.flatpickr"
+			],
+			"messages": [
+				"labkipageformsinputs-time-placeholder",
+				"labkipageformsinputs-tz-placeholder",
+				"labkipageformsinputs-tz-all-zones"
+			]
+		},
+		"ext.labki.pfInputs.flatpickr": {
+			"scripts": [
+				"lib/flatpickr/flatpickr.min.js"
+			],
+			"styles": [
+				"lib/flatpickr/flatpickr.min.css"
+			]
+		}
+	},
+	"manifest_version": 2
+}

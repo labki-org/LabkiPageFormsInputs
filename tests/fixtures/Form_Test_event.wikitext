@@ -1,0 +1,28 @@
+<noinclude>
+This is the form for editing pages of [[:Category:Test event]]. To add a new
+page, enter its name below — for example, "Workshop kickoff":
+
+{{#forminput:form=Test event}}
+
+</noinclude><includeonly>
+<div id="wikiPreview" style="display: none; padding-bottom: 25px; margin-bottom: 25px; border-bottom: 1px solid #AAAAAA;"></div>
+{{{for template|Test event}}}
+{| class="formtable"
+! Starts:
+| {{{field|starts|input type=datetime-tz}}}
+|-
+! On (date only):
+| {{{field|on|input type=date-only}}}
+|-
+! At (time only):
+| {{{field|at|input type=time-only}}}
+|}
+{{{end template}}}
+
+'''Free text:'''
+{{{standard input|free text|rows=5}}}
+
+{{{standard input|summary}}}
+{{{standard input|minor edit}}} {{{standard input|watch}}}
+{{{standard input|save}}} {{{standard input|preview}}} {{{standard input|cancel}}}
+</includeonly>

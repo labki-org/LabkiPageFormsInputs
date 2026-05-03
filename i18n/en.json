@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"Daniel Aharoni"
+		]
+	},
+	"labkipageformsinputs-desc": "Adds custom PageForms input types: <code>datetime-tz</code> (date with optional time and timezone), <code>date-only</code>, and <code>time-only</code>.",
+	"labkipageformsinputs-date-placeholder": "YYYY-MM-DD",
+	"labkipageformsinputs-time-placeholder": "HH:MM",
+	"labkipageformsinputs-tz-placeholder": "Time zone",
+	"labkipageformsinputs-tz-wiki-local": "Wiki local",
+	"labkipageformsinputs-tz-shortlist-label": "Common zones",
+	"labkipageformsinputs-tz-all-zones": "All zones…"
+}

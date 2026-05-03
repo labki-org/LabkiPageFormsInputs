@@ -1,0 +1,4 @@
+[[Has type::Date]]
+[[Has input type::date-only]]
+
+A test property exercising the `date-only` input.
