@@ -9,13 +9,13 @@ page, enter its name below — for example, "Workshop kickoff":
 {{{for template|Test event}}}
 {| class="formtable"
 ! Starts:
-| {{{field|starts|input type=datetime-tz}}}
+| {{{field|starts|input type=labki-datetime}}}
 |-
 ! On (date only):
-| {{{field|on|input type=date-only}}}
+| {{{field|on|input type=labki-date}}}
 |-
 ! At (time only):
-| {{{field|at|input type=time-only}}}
+| {{{field|at|input type=labki-time}}}
 |}
 {{{end template}}}
 

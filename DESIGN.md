@@ -4,7 +4,7 @@ Captures the non-obvious decisions for v1 so future maintainers can reason about
 
 ## Storage format: preserve offset, not UTC
 
-For `datetime-tz`, when the user picks a timezone, we save:
+For `labki-datetime`, when the user picks a timezone, we save:
 
 ```
 YYYY-MM-DDTHH:MM:SS±HH:MM
@@ -33,15 +33,15 @@ A curated shortlist of ~10 zones (PT/MT/CT/ET, UTC, London, Madrid, Berlin, Toky
 
 ## Why three inputs instead of one
 
-`date-only` and `time-only` are visually consistent siblings of `datetime-tz`. PageForms ships `datepicker` and `timepicker` already — ours exist so a form mixing date, datetime+TZ, and time fields renders with one cohesive look, not three different pickers. Opt-in is per-property; we do not register them as wiki-wide replacements.
+`labki-date` and `labki-time` are visually consistent siblings of `labki-datetime`. PageForms ships `datepicker` and `timepicker` already — ours exist so a form mixing date, datetime+TZ, and time fields renders with one cohesive look, not three different pickers. Opt-in is per-property; we do not register them as wiki-wide replacements.
 
-## time-only stores Text, not Date
+## labki-time stores Text, not Date
 
-SMW's `_dat` requires a date component — a bare `HH:MM` is rejected at save time. `time-only` therefore targets `Text`-typed properties. The widget includes a TZ selector so the user can record intent (e.g., "9am Pacific") and the saved format is `HH:MM` or `HH:MM <IANA_zone>` (space-delimited, IANA name verbatim). We deliberately do **not** store a numeric offset for time-only because, without an anchor date, the offset is ambiguous across DST boundaries — `9am Pacific` could be `-07:00` or `-08:00` depending on the day. The IANA name preserves the user's actual intent without that ambiguity.
+SMW's `_dat` requires a date component — a bare `HH:MM` is rejected at save time. `labki-time` therefore targets `Text`-typed properties. The widget includes a TZ selector so the user can record intent (e.g., "9am Pacific") and the saved format is `HH:MM` or `HH:MM <IANA_zone>` (space-delimited, IANA name verbatim). We deliberately do **not** store a numeric offset for labki-time because, without an anchor date, the offset is ambiguous across DST boundaries — `9am Pacific` could be `-07:00` or `-08:00` depending on the day. The IANA name preserves the user's actual intent without that ambiguity.
 
 ## getDefaultPropTypes returns []
 
-Each input's `getDefaultPropTypes()` is intentionally empty: installing the extension must not silently override PageForms' built-in `datepicker` for every existing Date property on the wiki. Users opt in per-property via `has_input_type=…`, or wiki-wide via `$wgSemanticSchemasDatatypeInputOverrides` when SemanticSchemas is also installed. `getOtherPropTypesHandled` declares the SMW types each input is compatible with (`_dat` for the date-family, `_txt` for time-only) — that's "this input can render values of these types," not "this input is the default for these types."
+Each input's `getDefaultPropTypes()` is intentionally empty: installing the extension must not silently override PageForms' built-in `datepicker` for every existing Date property on the wiki. Users opt in per-property via `has_input_type=…`, or wiki-wide via `$wgSemanticSchemasDatatypeInputOverrides` when SemanticSchemas is also installed. `getOtherPropTypesHandled` declares the SMW types each input is compatible with (`_dat` for the date-family, `_txt` for labki-time) — that's "this input can render values of these types," not "this input is the default for these types."
 
 ## Hidden-input + visible-fields pattern
 

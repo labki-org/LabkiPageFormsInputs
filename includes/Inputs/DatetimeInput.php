@@ -1,6 +1,6 @@
 <?php
 /**
- * `datetime-tz` — date (required) + optional time + optional timezone.
+ * `labki-datetime` — date (required) + optional time + optional timezone.
  *
  * Storage formats (preserve offset):
  *   - YYYY-MM-DD                           (date only)
@@ -16,14 +16,14 @@ namespace Labki\PageFormsInputs\Inputs;
 
 use MediaWiki\Html\Html;
 
-class DateTimeTzInput extends AbstractDateTimeInput {
+class DatetimeInput extends AbstractDateTimeInput {
 
 	public static function getName(): string {
-		return 'datetime-tz';
+		return 'labki-datetime';
 	}
 
 	public function getResourceModuleNames(): array {
-		return [ 'ext.labki.pfInputs.dateTimeTz' ];
+		return [ 'ext.labki.pfInputs.datetime' ];
 	}
 
 	public function getHtmlText(): string {
@@ -54,7 +54,7 @@ class DateTimeTzInput extends AbstractDateTimeInput {
 		$inner = $dateInput . $timeInput . $tzSelect . $this->hiddenInput( $cur );
 
 		return Html::rawElement( 'span', [
-			'class' => $this->wrapperClass( 'datetime-tz' ),
+			'class' => $this->wrapperClass( 'datetime' ),
 			'data-pf-initial' => $cur,
 		], $inner );
 	}

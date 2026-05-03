@@ -1,4 +1,4 @@
 [[Has type::Date]]
-[[Has input type::date-only]]
+[[Has input type::labki-date]]
 
-A test property exercising the `date-only` input.
+A test property exercising the `labki-date` input.

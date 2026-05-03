@@ -1,5 +1,5 @@
 [[Has type::Text]]
-[[Has input type::time-only]]
+[[Has input type::labki-time]]
 
-A test property exercising the `time-only` input. Stored as Text rather
+A test property exercising the `labki-time` input. Stored as Text rather
 than Date because SMW's `_dat` requires a date component.

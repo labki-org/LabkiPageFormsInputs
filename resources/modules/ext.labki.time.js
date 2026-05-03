@@ -1,5 +1,5 @@
 /*!
- * `time-only` widget — time + optional timezone, stored as Text.
+ * `labki-time` widget — time + optional timezone, stored as Text.
  *
  * Storage:
  *   "HH:MM"                          (no TZ chosen)
@@ -20,18 +20,21 @@
 		wrapper.dataset.labkiInit = '1';
 
 		const helpers = mw.labki.pfInputs;
+		const cfg = helpers.getConfig();
 		const initial = wrapper.getAttribute( 'data-pf-initial' ) || '';
 		const state = helpers.parseTimeOnly( initial );
 
 		const timeEl = wrapper.querySelector( '[data-pf-target="time"]' );
 		const hidden = wrapper.querySelector( '.labki-pf-input-value' );
 
-		const userTz = mw.config.get( 'wgLabkiPageFormsInputsUserTz' );
-		const tzSel = helpers.buildTzSelect( wrapper, state.tz || userTz || '' );
+		const tzSel = helpers.buildTzSelect(
+			wrapper,
+			state.tz || cfg.userTz || cfg.defaultTz || ''
+		);
 
 		function sync() {
 			const next = {
-				time: timeEl ? timeEl.value : '',
+				time: helpers.formatTime( timeEl ),
 				tz: tzSel ? tzSel.value : ''
 			};
 			if ( hidden ) {
@@ -43,8 +46,8 @@
 			window.flatpickr( timeEl, {
 				enableTime: true,
 				noCalendar: true,
-				dateFormat: 'H:i',
-				time_24hr: true,
+				dateFormat: cfg.time24h ? 'H:i' : 'h:i K',
+				time_24hr: cfg.time24h,
 				allowInput: true,
 				defaultDate: state.time || null,
 				onChange: sync,
@@ -64,12 +67,12 @@
 	}
 
 	mw.hook( 'wikipage.content' ).add( function ( $content ) {
-		$content.find( '.labki-pf-input-time-only' ).each( function () {
+		$content.find( '.labki-pf-input-time' ).each( function () {
 			initWrapper( this );
 		} );
 	} );
 
 	$( function () {
-		document.querySelectorAll( '.labki-pf-input-time-only' ).forEach( initWrapper );
+		document.querySelectorAll( '.labki-pf-input-time' ).forEach( initWrapper );
 	} );
 }() );

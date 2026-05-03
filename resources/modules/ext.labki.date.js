@@ -1,5 +1,5 @@
 /*!
- * `date-only` widget — visual sibling of datetime-tz for forms that mix
+ * `labki-date` widget — visual sibling of labki-datetime for forms that mix
  * date-only and datetime fields.
  *
  * @license GPL-2.0-or-later
@@ -13,13 +13,15 @@
 		}
 		wrapper.dataset.labkiInit = '1';
 
+		const helpers = mw.labki.pfInputs;
+		const cfg = helpers.getConfig();
 		const dateEl = wrapper.querySelector( '[data-pf-target="date"]' );
 		const hidden = wrapper.querySelector( '.labki-pf-input-value' );
 		const initial = wrapper.getAttribute( 'data-pf-initial' ) || '';
 
 		const sync = function () {
-			if ( hidden && dateEl ) {
-				hidden.value = dateEl.value;
+			if ( hidden ) {
+				hidden.value = helpers.formatDate( dateEl );
 			}
 		};
 
@@ -28,6 +30,7 @@
 				dateFormat: 'Y-m-d',
 				allowInput: true,
 				defaultDate: initial || null,
+				locale: { firstDayOfWeek: cfg.firstDayOfWeek },
 				onChange: sync,
 				onClose: sync
 			} );
@@ -41,12 +44,12 @@
 	}
 
 	mw.hook( 'wikipage.content' ).add( function ( $content ) {
-		$content.find( '.labki-pf-input-date-only' ).each( function () {
+		$content.find( '.labki-pf-input-date' ).each( function () {
 			initWrapper( this );
 		} );
 	} );
 
 	$( function () {
-		document.querySelectorAll( '.labki-pf-input-date-only' ).forEach( initWrapper );
+		document.querySelectorAll( '.labki-pf-input-date' ).forEach( initWrapper );
 	} );
 }() );

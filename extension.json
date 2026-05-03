@@ -1,6 +1,6 @@
 {
 	"name": "LabkiPageFormsInputs",
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"author": [
 		"Aharoni Lab",
 		"Daniel Aharoni"
@@ -46,9 +46,9 @@
 				"labkipageformsinputs-tz-wiki-local"
 			]
 		},
-		"ext.labki.pfInputs.dateTimeTz": {
+		"ext.labki.pfInputs.datetime": {
 			"scripts": [
-				"modules/ext.labki.dateTimeTz.js"
+				"modules/ext.labki.datetime.js"
 			],
 			"dependencies": [
 				"ext.labki.pfInputs.shared",
@@ -61,18 +61,18 @@
 				"labkipageformsinputs-tz-all-zones"
 			]
 		},
-		"ext.labki.pfInputs.dateOnly": {
+		"ext.labki.pfInputs.date": {
 			"scripts": [
-				"modules/ext.labki.dateOnly.js"
+				"modules/ext.labki.date.js"
 			],
 			"dependencies": [
 				"ext.labki.pfInputs.shared",
 				"ext.labki.pfInputs.flatpickr"
 			]
 		},
-		"ext.labki.pfInputs.timeOnly": {
+		"ext.labki.pfInputs.time": {
 			"scripts": [
-				"modules/ext.labki.timeOnly.js"
+				"modules/ext.labki.time.js"
 			],
 			"dependencies": [
 				"ext.labki.pfInputs.shared",
@@ -91,6 +91,24 @@
 			"styles": [
 				"lib/flatpickr/flatpickr.min.css"
 			]
+		}
+	},
+	"config": {
+		"LabkiPageFormsInputsTzShortlist": {
+			"value": null,
+			"description": "Override the curated TZ shortlist. Pass an associative PHP array `'IANA' => 'Display label'` (use '' for wiki-local). Order is preserved. Null/empty falls back to the bundled default."
+		},
+		"LabkiPageFormsInputsTime24h": {
+			"value": true,
+			"description": "Display the time picker in 24-hour mode (true) or 12-hour AM/PM mode (false). Storage format is always HH:MM regardless."
+		},
+		"LabkiPageFormsInputsFirstDayOfWeek": {
+			"value": 1,
+			"description": "First day of week shown in the date picker calendar: 0=Sunday, 1=Monday, ... 6=Saturday."
+		},
+		"LabkiPageFormsInputsDefaultTz": {
+			"value": "",
+			"description": "Fallback IANA timezone when a user has no `timecorrection` preference set. Empty string disables (widget defaults to wiki-local)."
 		}
 	},
 	"manifest_version": 2

@@ -2,12 +2,15 @@
  * Curated timezone shortlist + lazy-loaded full IANA list.
  * Exposes mw.labki.pfInputs.tz.{ SHORTLIST, getAllZones }.
  *
+ * The SHORTLIST may be overridden per-wiki via the
+ * `$wgLabkiPageFormsInputsTzShortlist` LocalSettings global.
+ *
  * @license GPL-2.0-or-later
  */
 ( function () {
 	'use strict';
 
-	const SHORTLIST = [
+	const DEFAULT_SHORTLIST = [
 		{ id: '', label: 'Wiki local' },
 		{ id: 'America/Los_Angeles', label: 'Pacific (Los Angeles)' },
 		{ id: 'America/Denver', label: 'Mountain (Denver)' },
@@ -20,6 +23,21 @@
 		{ id: 'Asia/Tokyo', label: 'Tokyo' }
 	];
 
+	function resolveShortlist() {
+		const override = mw.config.get( 'wgLabkiPageFormsInputsTzShortlist' );
+		if ( !Array.isArray( override ) || override.length === 0 ) {
+			return DEFAULT_SHORTLIST;
+		}
+		const out = [];
+		override.forEach( function ( entry ) {
+			if ( entry && typeof entry === 'object' && 'id' in entry && 'label' in entry ) {
+				out.push( { id: String( entry.id ), label: String( entry.label ) } );
+			}
+		} );
+		return out.length > 0 ? out : DEFAULT_SHORTLIST;
+	}
+
+	const SHORTLIST = resolveShortlist();
 	let cachedAllZones = null;
 
 	function getAllZones() {

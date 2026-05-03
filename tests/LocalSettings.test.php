@@ -10,7 +10,7 @@ wfLoadExtension( 'LabkiPageFormsInputs', '/mw-user-extensions/LabkiPageFormsInpu
 // is also installed alongside this extension. Disabled by default — flip on
 // when you want to E2E the cross-extension config.
 // wfLoadExtension( 'SemanticSchemas' );
-// $wgSemanticSchemasDatatypeInputOverrides = [ 'Date' => 'datetime-tz' ];
+// $wgSemanticSchemasDatatypeInputOverrides = [ 'Date' => 'labki-datetime' ];
 
 // Debugging
 $wgDebugLogGroups['labkipageformsinputs'] = '/var/log/mediawiki/labki-pf-inputs.log';

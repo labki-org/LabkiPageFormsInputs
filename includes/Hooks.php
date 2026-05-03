@@ -8,9 +8,9 @@
 
 namespace Labki\PageFormsInputs;
 
-use Labki\PageFormsInputs\Inputs\DateOnlyInput;
-use Labki\PageFormsInputs\Inputs\DateTimeTzInput;
-use Labki\PageFormsInputs\Inputs\TimeOnlyInput;
+use Labki\PageFormsInputs\Inputs\DateInput;
+use Labki\PageFormsInputs\Inputs\DatetimeInput;
+use Labki\PageFormsInputs\Inputs\TimeInput;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\User\UserTimeCorrection;
 use OutputPage;
@@ -20,19 +20,15 @@ use Skin;
 class Hooks {
 
 	public static function onPageFormsFormPrinterSetup( PFFormPrinter $formPrinter ): void {
-		$formPrinter->registerInputType( DateTimeTzInput::class );
-		$formPrinter->registerInputType( DateOnlyInput::class );
-		$formPrinter->registerInputType( TimeOnlyInput::class );
+		$formPrinter->registerInputType( DatetimeInput::class );
+		$formPrinter->registerInputType( DateInput::class );
+		$formPrinter->registerInputType( TimeInput::class );
 	}
 
 	/**
-	 * Expose the user's preferred IANA timezone to JS via mw.config so the
-	 * widget can pre-select it on fresh forms.
-	 *
-	 * Gated to PageForms' rendering specials so this doesn't run a user-prefs
-	 * lookup on every MW page view. Inline-form articles (#forminput etc.)
-	 * navigate to Special:FormEdit before any widget renders, so we still
-	 * cover that path.
+	 * Expose the user's TZ preference and per-wiki widget knobs to JS via
+	 * mw.config. Gated to PageForms' rendering specials so this doesn't run
+	 * a user-prefs lookup on every MW page view.
 	 */
 	public static function onBeforePageDisplay( OutputPage $out, Skin $skin ): void {
 		$title = $out->getTitle();
@@ -41,25 +37,71 @@ class Hooks {
 		) {
 			return;
 		}
+
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$vars = [
+			'wgLabkiPageFormsInputsTime24h' => (bool)$config->get( 'LabkiPageFormsInputsTime24h' ),
+			'wgLabkiPageFormsInputsFirstDayOfWeek' => self::clampDayOfWeek(
+				$config->get( 'LabkiPageFormsInputsFirstDayOfWeek' )
+			),
+		];
+
+		$shortlist = self::normalizeShortlist( $config->get( 'LabkiPageFormsInputsTzShortlist' ) );
+		if ( $shortlist !== null ) {
+			$vars['wgLabkiPageFormsInputsTzShortlist'] = $shortlist;
+		}
+
+		$defaultTz = (string)$config->get( 'LabkiPageFormsInputsDefaultTz' );
+		if ( $defaultTz !== '' ) {
+			$vars['wgLabkiPageFormsInputsDefaultTz'] = $defaultTz;
+		}
+
 		$user = $out->getUser();
-		if ( !$user->isRegistered() ) {
-			return;
+		if ( $user->isRegistered() ) {
+			$pref = (string)MediaWikiServices::getInstance()
+				->getUserOptionsLookup()
+				->getOption( $user, 'timecorrection' );
+			if ( $pref !== '' ) {
+				$utc = new UserTimeCorrection( $pref );
+				// Only ZoneInfo carries a real IANA name; Offset/System resolve
+				// to a numeric DateTimeZone the widget can't use DST-awarely.
+				if ( $utc->getCorrectionType() === UserTimeCorrection::ZONEINFO ) {
+					$tz = $utc->getTimeZone();
+					if ( $tz !== null ) {
+						$vars['wgLabkiPageFormsInputsUserTz'] = $tz->getName();
+					}
+				}
+			}
 		}
-		$pref = (string)MediaWikiServices::getInstance()
-			->getUserOptionsLookup()
-			->getOption( $user, 'timecorrection' );
-		if ( $pref === '' ) {
-			return;
+
+		$out->addJsConfigVars( $vars );
+	}
+
+	/**
+	 * Convert the LocalSettings-friendly `[ IANA => label ]` form into the
+	 * JS-friendly `[ { id, label } ]` ordered list. Returns null when the
+	 * config is unset or unusable, so the JS falls back to its default
+	 * shortlist.
+	 *
+	 * @param mixed $raw
+	 * @return array|null
+	 */
+	private static function normalizeShortlist( $raw ): ?array {
+		if ( !is_array( $raw ) || $raw === [] ) {
+			return null;
 		}
-		$utc = new UserTimeCorrection( $pref );
-		// Only ZoneInfo carries a real IANA name; Offset/System resolve to a
-		// numeric DateTimeZone that the widget can't use for DST-aware display.
-		if ( $utc->getCorrectionType() !== UserTimeCorrection::ZONEINFO ) {
-			return;
+		$out = [];
+		foreach ( $raw as $id => $label ) {
+			$out[] = [ 'id' => (string)$id, 'label' => (string)$label ];
 		}
-		$tz = $utc->getTimeZone();
-		if ( $tz !== null ) {
-			$out->addJsConfigVars( 'wgLabkiPageFormsInputsUserTz', $tz->getName() );
+		return $out;
+	}
+
+	private static function clampDayOfWeek( $raw ): int {
+		$n = (int)$raw;
+		if ( $n < 0 || $n > 6 ) {
+			return 1;
 		}
+		return $n;
 	}
 }

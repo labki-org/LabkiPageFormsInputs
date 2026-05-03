@@ -1,6 +1,6 @@
 <?php
 /**
- * `time-only` — time + optional timezone, stored as Text.
+ * `labki-time` — time + optional timezone, stored as Text.
  *
  * SMW's Date type can't hold a bare `HH:MM` (it requires at minimum a
  * date), so this input targets Text-typed (`_txt`) properties instead.
@@ -19,10 +19,10 @@ namespace Labki\PageFormsInputs\Inputs;
 
 use MediaWiki\Html\Html;
 
-class TimeOnlyInput extends AbstractDateTimeInput {
+class TimeInput extends AbstractDateTimeInput {
 
 	public static function getName(): string {
-		return 'time-only';
+		return 'labki-time';
 	}
 
 	public static function getOtherPropTypesHandled(): array {
@@ -34,7 +34,7 @@ class TimeOnlyInput extends AbstractDateTimeInput {
 	}
 
 	public function getResourceModuleNames(): array {
-		return [ 'ext.labki.pfInputs.timeOnly' ];
+		return [ 'ext.labki.pfInputs.time' ];
 	}
 
 	public function getHtmlText(): string {
@@ -57,7 +57,7 @@ class TimeOnlyInput extends AbstractDateTimeInput {
 		$inner = $timeInput . $tzSelect . $this->hiddenInput( $cur );
 
 		return Html::rawElement( 'span', [
-			'class' => $this->wrapperClass( 'time-only' ),
+			'class' => $this->wrapperClass( 'time' ),
 			'data-pf-initial' => $cur,
 		], $inner );
 	}

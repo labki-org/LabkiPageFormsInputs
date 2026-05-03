@@ -1,5 +1,5 @@
 [[Has type::Date]]
-[[Has input type::datetime-tz]]
+[[Has input type::labki-datetime]]
 
-A test property exercising the `datetime-tz` input. Date is required; time
+A test property exercising the `labki-datetime` input. Date is required; time
 and timezone are optional. Used by [[Form:Test event]].

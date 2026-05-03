@@ -4,7 +4,7 @@
 			"Daniel Aharoni"
 		]
 	},
-	"labkipageformsinputs-desc": "Adds custom PageForms input types: <code>datetime-tz</code> (date with optional time and timezone), <code>date-only</code>, and <code>time-only</code>.",
+	"labkipageformsinputs-desc": "Adds custom PageForms input types: <code>labki-datetime</code> (date with optional time and timezone), <code>labki-date</code>, and <code>labki-time</code>.",
 	"labkipageformsinputs-date-placeholder": "YYYY-MM-DD",
 	"labkipageformsinputs-time-placeholder": "HH:MM",
 	"labkipageformsinputs-tz-placeholder": "Time zone",

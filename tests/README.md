@@ -46,9 +46,9 @@ bash ./tests/scripts/populate_test_data.sh
 
 That script creates:
 
-- `Property:Has test datetime` (`datetime-tz`)
-- `Property:Has test date` (`date-only`)
-- `Property:Has test time` (`time-only`)
+- `Property:Has test datetime` (`labki-datetime`)
+- `Property:Has test date` (`labki-date`)
+- `Property:Has test time` (`labki-time`)
 - `Template:Test event` and `Form:Test event` that use all three
 - `Category:Test event` with a `#ask` query rendering the saved values
 
@@ -86,7 +86,7 @@ running MediaWiki. The test runner therefore uses MW core's PHPUnit:
 ./tests/scripts/run-docker-tests.sh --testdox
 
 # One file
-./tests/scripts/run-docker-tests.sh --filter DateTimeTzInputTest
+./tests/scripts/run-docker-tests.sh --filter DatetimeInputTest
 ```
 
 ## JS sanity-check
@@ -112,7 +112,7 @@ docker compose exec wiki php maintenance/run.php eval \
 
 # Confirm input types registered
 docker compose exec wiki php maintenance/run.php eval \
-  '$p = new PFFormPrinter(); var_dump( in_array( "datetime-tz", array_keys( $p->mInputTypeClasses ) ) );'
+  '$p = new PFFormPrinter(); var_dump( in_array( "labki-datetime", array_keys( $p->mInputTypeClasses ) ) );'
 
 # Run jobs once (e.g., after creating Property pages with annotations)
 docker compose exec wiki php maintenance/run.php runJobs

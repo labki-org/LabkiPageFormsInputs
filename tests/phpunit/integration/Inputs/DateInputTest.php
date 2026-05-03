@@ -5,51 +5,51 @@
 
 namespace Labki\PageFormsInputs\Tests\Inputs;
 
-use Labki\PageFormsInputs\Inputs\DateOnlyInput;
+use Labki\PageFormsInputs\Inputs\DateInput;
 use MediaWikiIntegrationTestCase;
 
 /**
- * @covers \Labki\PageFormsInputs\Inputs\DateOnlyInput
+ * @covers \Labki\PageFormsInputs\Inputs\DateInput
  */
-class DateOnlyInputTest extends MediaWikiIntegrationTestCase {
+class DateInputTest extends MediaWikiIntegrationTestCase {
 
-	/** @covers \Labki\PageFormsInputs\Inputs\DateOnlyInput::getName */
+	/** @covers \Labki\PageFormsInputs\Inputs\DateInput::getName */
 	public function testGetNameIsStableIdentifier(): void {
-		$this->assertSame( 'date-only', DateOnlyInput::getName() );
+		$this->assertSame( 'labki-date', DateInput::getName() );
 	}
 
-	/** @covers \Labki\PageFormsInputs\Inputs\DateOnlyInput::getDefaultPropTypes */
+	/** @covers \Labki\PageFormsInputs\Inputs\DateInput::getDefaultPropTypes */
 	public function testIsOptInOnly(): void {
-		$this->assertSame( [], DateOnlyInput::getDefaultPropTypes() );
+		$this->assertSame( [], DateInput::getDefaultPropTypes() );
 	}
 
-	/** @covers \Labki\PageFormsInputs\Inputs\DateOnlyInput::getOtherPropTypesHandled */
+	/** @covers \Labki\PageFormsInputs\Inputs\DateInput::getOtherPropTypesHandled */
 	public function testHandlesSmwDateProperty(): void {
-		$this->assertContains( '_dat', DateOnlyInput::getOtherPropTypesHandled() );
+		$this->assertContains( '_dat', DateInput::getOtherPropTypesHandled() );
 	}
 
-	/** @covers \Labki\PageFormsInputs\Inputs\DateOnlyInput::getHtmlText */
+	/** @covers \Labki\PageFormsInputs\Inputs\DateInput::getHtmlText */
 	public function testHtmlEmitsHiddenInputAndDateTarget(): void {
-		$input = new DateOnlyInput( 0, '', 'My_field', false, [] );
+		$input = new DateInput( 0, '', 'My_field', false, [] );
 		$html = $input->getHtmlText();
 		$this->assertStringContainsString( 'type="hidden"', $html );
 		$this->assertStringContainsString( 'name="My_field"', $html );
 		$this->assertStringContainsString( 'data-pf-target="date"', $html );
-		$this->assertStringContainsString( 'labki-pf-input-date-only', $html );
+		$this->assertStringContainsString( 'labki-pf-input-date', $html );
 		$this->assertStringNotContainsString( 'data-pf-target="time"', $html );
 		$this->assertStringNotContainsString( 'data-pf-target="tz"', $html );
 	}
 
-	/** @covers \Labki\PageFormsInputs\Inputs\DateOnlyInput::getHtmlText */
+	/** @covers \Labki\PageFormsInputs\Inputs\DateInput::getHtmlText */
 	public function testInitialValueRoundTripsThroughDataAttr(): void {
-		$input = new DateOnlyInput( 0, '2026-09-12', 'My_field', false, [] );
+		$input = new DateInput( 0, '2026-09-12', 'My_field', false, [] );
 		$html = $input->getHtmlText();
 		$this->assertStringContainsString( 'data-pf-initial="2026-09-12"', $html );
 	}
 
 	/** @covers \Labki\PageFormsInputs\Inputs\AbstractDateTimeInput::getParameters */
 	public function testCustomPlaceholderHonored(): void {
-		$input = new DateOnlyInput( 0, '', 'My_field', false, [ 'placeholder' => 'Pick a day' ] );
+		$input = new DateInput( 0, '', 'My_field', false, [ 'placeholder' => 'Pick a day' ] );
 		$html = $input->getHtmlText();
 		$this->assertStringContainsString( 'placeholder="Pick a day"', $html );
 	}

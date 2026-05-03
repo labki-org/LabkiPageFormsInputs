@@ -1,6 +1,6 @@
 <?php
 /**
- * `date-only` — date input on the same flatpickr base as DateTimeTzInput,
+ * `labki-date` — date input on the same flatpickr base as DatetimeInput,
  * for visual consistency across forms that mix date and datetime fields.
  *
  * Saves: YYYY-MM-DD
@@ -13,14 +13,14 @@ namespace Labki\PageFormsInputs\Inputs;
 
 use MediaWiki\Html\Html;
 
-class DateOnlyInput extends AbstractDateTimeInput {
+class DateInput extends AbstractDateTimeInput {
 
 	public static function getName(): string {
-		return 'date-only';
+		return 'labki-date';
 	}
 
 	public function getResourceModuleNames(): array {
-		return [ 'ext.labki.pfInputs.dateOnly' ];
+		return [ 'ext.labki.pfInputs.date' ];
 	}
 
 	public function getHtmlText(): string {
@@ -38,7 +38,7 @@ class DateOnlyInput extends AbstractDateTimeInput {
 		$inner = $dateInput . $this->hiddenInput( $cur );
 
 		return Html::rawElement( 'span', [
-			'class' => $this->wrapperClass( 'date-only' ),
+			'class' => $this->wrapperClass( 'date' ),
 			'data-pf-initial' => $cur,
 		], $inner );
 	}

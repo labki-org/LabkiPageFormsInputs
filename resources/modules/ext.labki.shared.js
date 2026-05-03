@@ -1,8 +1,9 @@
 /*!
- * Shared serializer / parser / TZ-offset helper for Labki PF inputs.
+ * Shared serializer / parser / TZ helpers for Labki PF inputs.
  *
  * Exposes mw.labki.pfInputs.{ parseValue, serializeValue, offsetFor,
- * parseTimeOnly, serializeTimeOnly, buildTzSelect }.
+ * parseTimeOnly, serializeTimeOnly, buildTzSelect, formatDate, formatTime,
+ * getConfig }.
  *
  * @license GPL-2.0-or-later
  */
@@ -18,11 +19,9 @@
 	const SUBMIT_FLAG_KEY = 'labki-pf-just-saved';
 	const ALL_ZONES_VALUE = '__all__';
 	const WRAPPER_SELECTOR =
-		'.labki-pf-input-datetime-tz, .labki-pf-input-date-only, .labki-pf-input-time-only';
+		'.labki-pf-input-datetime, .labki-pf-input-date, .labki-pf-input-time';
 
 	/**
-	 * Parse a stored value back into widget state.
-	 *
 	 * @param {string} str
 	 * @return {{ date: string, time: string, tz: string, offset: string }}
 	 */
@@ -47,10 +46,9 @@
 	}
 
 	/**
-	 * Serialize widget state into the wikitext value PageForms posts.
-	 * If `state.tz` is non-empty, its DST-aware offset wins. If `state.tz`
-	 * is empty but `state.offset` is set (round-trip from a stored
-	 * fixed-offset value), preserve that offset rather than dropping it.
+	 * If `state.tz` is set, its DST-aware offset wins. Otherwise, preserve a
+	 * pre-existing `state.offset` (round-trip from a stored fixed-offset
+	 * value) so editing-and-saving doesn't silently rewrite the offset.
 	 *
 	 * @param {{ date: string, time?: string, tz?: string, offset?: string }} state
 	 * @return {string}
@@ -77,13 +75,9 @@
 	}
 
 	/**
-	 * Compute the UTC offset of an IANA zone at a given date (DST-aware).
-	 * Uses Intl.DateTimeFormat with timeZoneName: 'longOffset', which yields
-	 * strings like "GMT-07:00" or "GMT+05:30". Returns "±HH:MM".
-	 *
 	 * @param {string} tz IANA name, e.g. "America/Los_Angeles"
 	 * @param {string} dateStr "YYYY-MM-DD"
-	 * @return {string}
+	 * @return {string} "±HH:MM" or "" on failure
 	 */
 	function offsetFor( tz, dateStr ) {
 		try {
@@ -110,8 +104,6 @@
 	}
 
 	/**
-	 * Parse a stored time-only value (Text-typed property).
-	 *
 	 * @param {string} str e.g. "14:30" or "14:30 America/Los_Angeles"
 	 * @return {{ time: string, tz: string }}
 	 */
@@ -127,8 +119,6 @@
 	}
 
 	/**
-	 * Serialize widget state for time-only into wikitext.
-	 *
 	 * @param {{ time: string, tz?: string }} state
 	 * @return {string}
 	 */
@@ -142,6 +132,64 @@
 			return time;
 		}
 		return time + ' ' + tz;
+	}
+
+	/**
+	 * Read a date input's canonical "YYYY-MM-DD". Prefers flatpickr's
+	 * selectedDates so 12h/locale display formats don't pollute storage.
+	 *
+	 * @param {HTMLInputElement|null} el
+	 * @return {string}
+	 */
+	function formatDate( el ) {
+		if ( !el ) {
+			return '';
+		}
+		const fp = el._flatpickr;
+		if ( fp && fp.selectedDates && fp.selectedDates[ 0 ] ) {
+			const d = fp.selectedDates[ 0 ];
+			return d.getFullYear() + '-' +
+				String( d.getMonth() + 1 ).padStart( 2, '0' ) + '-' +
+				String( d.getDate() ).padStart( 2, '0' );
+		}
+		return ( el.value || '' ).trim();
+	}
+
+	/**
+	 * Read a time input's canonical "HH:MM". Prefers flatpickr's
+	 * selectedDates so 12h/AM-PM display formats don't pollute storage.
+	 *
+	 * @param {HTMLInputElement|null} el
+	 * @return {string}
+	 */
+	function formatTime( el ) {
+		if ( !el ) {
+			return '';
+		}
+		const fp = el._flatpickr;
+		if ( fp && fp.selectedDates && fp.selectedDates[ 0 ] ) {
+			const d = fp.selectedDates[ 0 ];
+			return String( d.getHours() ).padStart( 2, '0' ) + ':' +
+				String( d.getMinutes() ).padStart( 2, '0' );
+		}
+		return ( el.value || '' ).trim();
+	}
+
+	/**
+	 * Read the extension's mw.config knobs with defaults applied.
+	 *
+	 * @return {{ time24h: boolean, firstDayOfWeek: number, defaultTz: string, userTz: string }}
+	 */
+	function getConfig() {
+		const raw24h = mw.config.get( 'wgLabkiPageFormsInputsTime24h' );
+		const rawFdw = mw.config.get( 'wgLabkiPageFormsInputsFirstDayOfWeek' );
+		const fdw = parseInt( rawFdw, 10 );
+		return {
+			time24h: raw24h === null || raw24h === undefined ? true : !!raw24h,
+			firstDayOfWeek: ( fdw >= 0 && fdw <= 6 ) ? fdw : 1,
+			defaultTz: mw.config.get( 'wgLabkiPageFormsInputsDefaultTz' ) || '',
+			userTz: mw.config.get( 'wgLabkiPageFormsInputsUserTz' ) || ''
+		};
 	}
 
 	let compactFragmentCache = null;
@@ -264,11 +312,12 @@
 	mw.labki.pfInputs.parseTimeOnly = parseTimeOnly;
 	mw.labki.pfInputs.serializeTimeOnly = serializeTimeOnly;
 	mw.labki.pfInputs.buildTzSelect = buildTzSelect;
+	mw.labki.pfInputs.formatDate = formatDate;
+	mw.labki.pfInputs.formatTime = formatTime;
+	mw.labki.pfInputs.getConfig = getConfig;
 
-	// bfcache restore: if the user just submitted a Labki form and then hit
-	// Back, PageForms' post-submit form state prevents subsequent saves.
-	// Reload only when we know a submission happened (not on every Back to
-	// any page that contains a wrapper).
+	// bfcache restore: PageForms' post-submit form state can prevent further
+	// saves. Set a flag on submit; reload only when the flag survives bfcache.
 	if ( typeof window !== 'undefined' ) {
 		document.addEventListener( 'submit', function ( ev ) {
 			if ( ev.target instanceof HTMLFormElement &&
