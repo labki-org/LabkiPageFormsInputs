@@ -219,12 +219,16 @@
 
 	// On bfcache restore (browser Back after a successful save), PageForms'
 	// post-submit form state prevents subsequent saves from firing. Reloading
-	// is simpler than reverse-engineering PF's internal state.
-	window.addEventListener( 'pageshow', function ( e ) {
-		if ( e.persisted && document.querySelector(
-			'.labki-pf-input-datetime-tz, .labki-pf-input-date-only, .labki-pf-input-time-only'
-		) ) {
-			window.location.reload();
-		}
-	} );
+	// is simpler than reverse-engineering PF's internal state. The typeof
+	// guard keeps shared.js loadable in the Node sanity-check sandbox, which
+	// only stubs `mw`.
+	if ( typeof window !== 'undefined' ) {
+		window.addEventListener( 'pageshow', function ( e ) {
+			if ( e.persisted && document.querySelector(
+				'.labki-pf-input-datetime-tz, .labki-pf-input-date-only, .labki-pf-input-time-only'
+			) ) {
+				window.location.reload();
+			}
+		} );
+	}
 }() );

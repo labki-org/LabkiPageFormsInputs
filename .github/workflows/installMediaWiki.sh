@@ -15,7 +15,14 @@ PF_VERSION="${3:?Missing PageForms version}"
 MW_DIR="$HOME/mediawiki"
 
 echo "==> Downloading MediaWiki core ($MW_BRANCH)..."
-curl -sL "https://github.com/wikimedia/mediawiki/archive/refs/heads/${MW_BRANCH}.tar.gz" | tar xz
+# -f: fail on HTTP errors (otherwise GitHub HTML 5xx pages silently feed `tar`
+# garbage). Retry transient failures so a single GitHub hiccup doesn't tank CI.
+TARBALL="$(mktemp --suffix=.tar.gz)"
+trap 'rm -f "$TARBALL"' EXIT
+curl -fSL --retry 5 --retry-all-errors --retry-delay 2 \
+	-o "$TARBALL" \
+	"https://github.com/wikimedia/mediawiki/archive/refs/heads/${MW_BRANCH}.tar.gz"
+tar xzf "$TARBALL"
 mv "mediawiki-${MW_BRANCH}" "$MW_DIR"
 
 cd "$MW_DIR"
