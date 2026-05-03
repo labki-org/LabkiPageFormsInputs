@@ -21,30 +21,31 @@ use MediaWiki\Html\Html;
 
 class TimeOnlyInput extends AbstractDateTimeInput {
 
-	public static function getName() {
+	public static function getName(): string {
 		return 'time-only';
 	}
 
-	public static function getOtherPropTypesHandled() {
+	public static function getOtherPropTypesHandled(): array {
 		return [ '_txt' ];
 	}
 
-	public static function getOtherCargoTypesHandled() {
+	public static function getOtherCargoTypesHandled(): array {
 		return [ 'String', 'Text' ];
 	}
 
-	public function getResourceModuleNames() {
+	public function getResourceModuleNames(): array {
 		return [ 'ext.labki.pfInputs.timeOnly' ];
 	}
 
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		$cur = (string)$this->mCurrentValue;
 
 		$timeInput = Html::element( 'input', [
 			'type' => 'text',
 			'class' => 'labki-pf-time',
 			'data-pf-target' => 'time',
-			'placeholder' => wfMessage( 'labkipageformsinputs-time-placeholder' )->plain(),
+			'placeholder' => $this->mOtherArgs['placeholder']
+				?? wfMessage( 'labkipageformsinputs-time-placeholder' )->plain(),
 			'disabled' => $this->mIsDisabled,
 		] );
 

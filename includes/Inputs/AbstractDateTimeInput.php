@@ -24,32 +24,24 @@ abstract class AbstractDateTimeInput extends PFFormInput {
 	 * override PageForms' default `datepicker` for every Date property on
 	 * the wiki. The SemanticSchemas `$wgSemanticSchemasDatatypeInputOverrides`
 	 * config is the supported mechanism for making one of these the default.
-	 *
-	 * @return array
 	 */
-	public static function getDefaultPropTypes() {
+	public static function getDefaultPropTypes(): array {
 		return [];
 	}
 
-	/**
-	 * Compatible SMW datatypes — datetime/date subclasses handle Date (`_dat`),
-	 * time-only handles Text (`_txt`). Subclasses extend as needed.
-	 *
-	 * @return string[]
-	 */
-	public static function getOtherPropTypesHandled() {
+	public static function getOtherPropTypesHandled(): array {
 		return [ '_dat' ];
 	}
 
-	public static function getDefaultCargoTypes() {
+	public static function getDefaultCargoTypes(): array {
 		return [];
 	}
 
-	public static function getOtherCargoTypesHandled() {
+	public static function getOtherCargoTypesHandled(): array {
 		return [ 'Date', 'Datetime' ];
 	}
 
-	public static function getParameters() {
+	public static function getParameters(): array {
 		$params = parent::getParameters();
 		$params[] = [
 			'name' => 'placeholder',

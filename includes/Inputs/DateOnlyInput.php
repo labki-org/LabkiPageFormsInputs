@@ -15,15 +15,15 @@ use MediaWiki\Html\Html;
 
 class DateOnlyInput extends AbstractDateTimeInput {
 
-	public static function getName() {
+	public static function getName(): string {
 		return 'date-only';
 	}
 
-	public function getResourceModuleNames() {
+	public function getResourceModuleNames(): array {
 		return [ 'ext.labki.pfInputs.dateOnly' ];
 	}
 
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		$cur = (string)$this->mCurrentValue;
 
 		$dateInput = Html::element( 'input', [

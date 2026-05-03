@@ -1,6 +1,6 @@
 {
 	"name": "LabkiPageFormsInputs",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"author": [
 		"Aharoni Lab",
 		"Daniel Aharoni"
@@ -10,7 +10,7 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.39.0",
+		"MediaWiki": ">= 1.43.0",
 		"extensions": {
 			"PageForms": ">= 6.0"
 		}

@@ -29,6 +29,16 @@
 		const userTz = mw.config.get( 'wgLabkiPageFormsInputsUserTz' );
 		const tzSel = helpers.buildTzSelect( wrapper, state.tz || userTz || '' );
 
+		function sync() {
+			const next = {
+				time: timeEl ? timeEl.value : '',
+				tz: tzSel ? tzSel.value : ''
+			};
+			if ( hidden ) {
+				hidden.value = helpers.serializeTimeOnly( next );
+			}
+		}
+
 		if ( timeEl && typeof window.flatpickr === 'function' ) {
 			window.flatpickr( timeEl, {
 				enableTime: true,
@@ -46,14 +56,8 @@
 			timeEl.addEventListener( 'input', sync );
 		}
 
-		function sync() {
-			const next = {
-				time: timeEl ? timeEl.value : '',
-				tz: tzSel ? tzSel.value : ''
-			};
-			if ( hidden ) {
-				hidden.value = helpers.serializeTimeOnly( next );
-			}
+		if ( tzSel ) {
+			tzSel.addEventListener( 'change', sync );
 		}
 
 		sync();

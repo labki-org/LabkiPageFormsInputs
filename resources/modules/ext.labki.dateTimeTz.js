@@ -1,6 +1,6 @@
 /*!
  * `datetime-tz` widget — initializes flatpickr on `.labki-pf-input-datetime-tz`
- * wrappers, builds a TZ selector (curated shortlist + lazy "All zones…"),
+ * wrappers, builds a TZ selector (curated shortlist + lazy "All zones..."),
  * and keeps the hidden value synced via the shared serializer.
  *
  * @license GPL-2.0-or-later
@@ -25,6 +25,21 @@
 		const userTz = mw.config.get( 'wgLabkiPageFormsInputsUserTz' );
 		const tzSel = helpers.buildTzSelect( wrapper, state.tz || userTz || '' );
 
+		function sync() {
+			const tz = tzSel ? tzSel.value : '';
+			// Preserve the original offset only when no IANA zone is selected;
+			// picking a zone always wins (DST-aware re-computation).
+			const next = {
+				date: dateEl ? dateEl.value : '',
+				time: timeEl ? timeEl.value : '',
+				tz: tz,
+				offset: tz ? '' : ( state.offset || '' )
+			};
+			if ( hidden ) {
+				hidden.value = helpers.serializeValue( next );
+			}
+		}
+
 		if ( dateEl && typeof window.flatpickr === 'function' ) {
 			window.flatpickr( dateEl, {
 				dateFormat: 'Y-m-d',
@@ -35,6 +50,8 @@
 			} );
 		} else if ( dateEl ) {
 			dateEl.value = state.date;
+			dateEl.addEventListener( 'change', sync );
+			dateEl.addEventListener( 'input', sync );
 		}
 
 		if ( timeEl && typeof window.flatpickr === 'function' ) {
@@ -50,24 +67,12 @@
 			} );
 		} else if ( timeEl ) {
 			timeEl.value = state.time;
+			timeEl.addEventListener( 'change', sync );
+			timeEl.addEventListener( 'input', sync );
 		}
 
-		[ dateEl, timeEl ].forEach( function ( el ) {
-			if ( el ) {
-				el.addEventListener( 'change', sync );
-				el.addEventListener( 'input', sync );
-			}
-		} );
-
-		function sync() {
-			const next = {
-				date: dateEl ? dateEl.value : '',
-				time: timeEl ? timeEl.value : '',
-				tz: tzSel ? tzSel.value : ''
-			};
-			if ( hidden ) {
-				hidden.value = helpers.serializeValue( next );
-			}
+		if ( tzSel ) {
+			tzSel.addEventListener( 'change', sync );
 		}
 
 		sync();

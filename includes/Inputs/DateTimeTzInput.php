@@ -18,15 +18,15 @@ use MediaWiki\Html\Html;
 
 class DateTimeTzInput extends AbstractDateTimeInput {
 
-	public static function getName() {
+	public static function getName(): string {
 		return 'datetime-tz';
 	}
 
-	public function getResourceModuleNames() {
+	public function getResourceModuleNames(): array {
 		return [ 'ext.labki.pfInputs.dateTimeTz' ];
 	}
 
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		$cur = (string)$this->mCurrentValue;
 
 		$dateInput = Html::element( 'input', [

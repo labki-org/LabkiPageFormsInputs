@@ -1,6 +1,5 @@
 /*!
  * Curated timezone shortlist + lazy-loaded full IANA list.
- *
  * Exposes mw.labki.pfInputs.tz.{ SHORTLIST, getAllZones }.
  *
  * @license GPL-2.0-or-later
@@ -8,9 +7,6 @@
 ( function () {
 	'use strict';
 
-	// Curated set covering the lab's typical workshop locations and most
-	// participants. The string label is what the user sees in the dropdown;
-	// the IANA name is what we serialize against.
 	const SHORTLIST = [
 		{ id: '', label: 'Wiki local' },
 		{ id: 'America/Los_Angeles', label: 'Pacific (Los Angeles)' },
@@ -24,21 +20,22 @@
 		{ id: 'Asia/Tokyo', label: 'Tokyo' }
 	];
 
-	/**
-	 * Return the full IANA zone list. Uses Intl.supportedValuesOf when
-	 * available (modern browsers); otherwise falls back to the shortlist.
-	 *
-	 * @return {string[]}
-	 */
+	let cachedAllZones = null;
+
 	function getAllZones() {
+		if ( cachedAllZones !== null ) {
+			return cachedAllZones;
+		}
 		if ( typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function' ) {
 			try {
-				return Intl.supportedValuesOf( 'timeZone' );
+				cachedAllZones = Intl.supportedValuesOf( 'timeZone' );
+				return cachedAllZones;
 			} catch ( e ) {
 				// Some old engines throw rather than returning undefined.
 			}
 		}
-		return SHORTLIST.map( ( z ) => z.id ).filter( ( id ) => id !== '' );
+		cachedAllZones = SHORTLIST.map( ( z ) => z.id ).filter( ( id ) => id !== '' );
+		return cachedAllZones;
 	}
 
 	mw.labki = mw.labki || {};

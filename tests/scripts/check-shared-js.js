@@ -88,6 +88,26 @@ check(
 	'2026-09-12T14:30:00+00:00'
 );
 
+// Offset round-trip: parsing a stored fixed-offset value and re-serializing
+// without picking an IANA zone must preserve the original offset (otherwise
+// editing-and-saving silently rewrites the data).
+check(
+	'serialize preserves offset when no tz',
+	serializeValue( { date: '2026-09-12', time: '14:30', offset: '-07:00' } ),
+	'2026-09-12T14:30:00-07:00'
+);
+check(
+	'serialize: tz wins over offset',
+	serializeValue( { date: '2026-09-12', time: '14:30', tz: 'UTC', offset: '-07:00' } ),
+	'2026-09-12T14:30:00+00:00'
+);
+const parsed = parseValue( '2026-09-12T14:30:00-07:00' );
+check(
+	'parse → serialize round-trip with offset',
+	serializeValue( parsed ),
+	'2026-09-12T14:30:00-07:00'
+);
+
 // offsetFor — DST-aware
 check( 'offsetFor LA Sep', offsetFor( 'America/Los_Angeles', '2026-09-12' ), '-07:00' );
 check( 'offsetFor LA Dec', offsetFor( 'America/Los_Angeles', '2026-12-12' ), '-08:00' );

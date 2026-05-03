@@ -12,19 +12,13 @@ use Labki\PageFormsInputs\Inputs\DateOnlyInput;
 use Labki\PageFormsInputs\Inputs\DateTimeTzInput;
 use Labki\PageFormsInputs\Inputs\TimeOnlyInput;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\User\UserTimeCorrection;
 use OutputPage;
 use PFFormPrinter;
 use Skin;
 
 class Hooks {
 
-	/**
-	 * Register our custom input types with PageForms.
-	 *
-	 * Hook fires once per request when PFFormPrinter is constructed.
-	 *
-	 * @param PFFormPrinter $formPrinter
-	 */
 	public static function onPageFormsFormPrinterSetup( PFFormPrinter $formPrinter ): void {
 		$formPrinter->registerInputType( DateTimeTzInput::class );
 		$formPrinter->registerInputType( DateOnlyInput::class );
@@ -32,39 +26,40 @@ class Hooks {
 	}
 
 	/**
-	 * Expose the user's preferred IANA timezone (if any) to JS via mw.config,
-	 * so the widget can pre-select it on fresh forms.
+	 * Expose the user's preferred IANA timezone to JS via mw.config so the
+	 * widget can pre-select it on fresh forms.
 	 *
-	 * @param OutputPage $out
-	 * @param Skin $skin
+	 * Gated to PageForms' rendering specials so this doesn't run a user-prefs
+	 * lookup on every MW page view. Inline-form articles (#forminput etc.)
+	 * navigate to Special:FormEdit before any widget renders, so we still
+	 * cover that path.
 	 */
 	public static function onBeforePageDisplay( OutputPage $out, Skin $skin ): void {
+		$title = $out->getTitle();
+		if ( $title === null
+			|| ( !$title->isSpecial( 'FormEdit' ) && !$title->isSpecial( 'RunQuery' ) )
+		) {
+			return;
+		}
 		$user = $out->getUser();
 		if ( !$user->isRegistered() ) {
 			return;
 		}
-		$lookup = MediaWikiServices::getInstance()->getUserOptionsLookup();
-		$pref = $lookup->getOption( $user, 'timecorrection' );
-		$iana = self::extractIanaZone( (string)$pref );
-		if ( $iana !== null ) {
-			$out->addJsConfigVars( 'wgLabkiPageFormsInputsUserTz', $iana );
-		}
-	}
-
-	/**
-	 * MW stores `timecorrection` as one of:
-	 *   - "ZoneInfo|<minutes>|<IANA>"   → return the IANA name
-	 *   - "Offset|<minutes>"            → no IANA name available, return null
-	 *   - "System|<minutes>" / unset    → null
-	 */
-	private static function extractIanaZone( string $pref ): ?string {
+		$pref = (string)MediaWikiServices::getInstance()
+			->getUserOptionsLookup()
+			->getOption( $user, 'timecorrection' );
 		if ( $pref === '' ) {
-			return null;
+			return;
 		}
-		$parts = explode( '|', $pref );
-		if ( count( $parts ) >= 3 && $parts[0] === 'ZoneInfo' && $parts[2] !== '' ) {
-			return $parts[2];
+		$utc = new UserTimeCorrection( $pref );
+		// Only ZoneInfo carries a real IANA name; Offset/System resolve to a
+		// numeric DateTimeZone that the widget can't use for DST-aware display.
+		if ( $utc->getCorrectionType() !== UserTimeCorrection::ZONEINFO ) {
+			return;
 		}
-		return null;
+		$tz = $utc->getTimeZone();
+		if ( $tz !== null ) {
+			$out->addJsConfigVars( 'wgLabkiPageFormsInputsUserTz', $tz->getName() );
+		}
 	}
 }
