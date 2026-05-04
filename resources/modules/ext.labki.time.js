@@ -29,7 +29,7 @@
 
 		const tzSel = helpers.buildTzSelect(
 			wrapper,
-			state.tz || cfg.userTz || cfg.defaultTz || ''
+			state.tz || helpers.tzFallback( cfg )
 		);
 
 		function sync() {

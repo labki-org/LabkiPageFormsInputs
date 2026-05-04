@@ -11,6 +11,9 @@
 	'use strict';
 
 	const DEFAULT_SHORTLIST = [
+		// id:'' is a placeholder rewritten to the wiki's $wgLocaltimezone in
+		// resolveShortlist(). A literal empty id would serialize values without
+		// any offset, silently meaning UTC to SMW.
 		{ id: '', label: 'Wiki local' },
 		{ id: 'America/Los_Angeles', label: 'Pacific (Los Angeles)' },
 		{ id: 'America/Denver', label: 'Mountain (Denver)' },
@@ -24,17 +27,22 @@
 	];
 
 	function resolveShortlist() {
+		const wikiTz = mw.config.get( 'wgLabkiPageFormsInputsWikiTz' ) || 'UTC';
 		const override = mw.config.get( 'wgLabkiPageFormsInputsTzShortlist' );
-		if ( !Array.isArray( override ) || override.length === 0 ) {
-			return DEFAULT_SHORTLIST;
+		const filtered = ( Array.isArray( override ) && override.length > 0 ) ?
+			override.filter( ( e ) => e && typeof e === 'object' && 'id' in e && 'label' in e ) :
+			[];
+		const list = filtered.length > 0 ? filtered : DEFAULT_SHORTLIST;
+		return list.map( ( e ) => rewriteEmptyId( e, wikiTz ) );
+	}
+
+	function rewriteEmptyId( entry, wikiTz ) {
+		const id = String( entry.id );
+		const label = String( entry.label );
+		if ( id !== '' ) {
+			return { id: id, label: label };
 		}
-		const out = [];
-		override.forEach( function ( entry ) {
-			if ( entry && typeof entry === 'object' && 'id' in entry && 'label' in entry ) {
-				out.push( { id: String( entry.id ), label: String( entry.label ) } );
-			}
-		} );
-		return out.length > 0 ? out : DEFAULT_SHORTLIST;
+		return { id: wikiTz, label: label + ' (' + wikiTz + ')' };
 	}
 
 	const SHORTLIST = resolveShortlist();

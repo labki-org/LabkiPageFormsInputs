@@ -11,11 +11,15 @@ namespace Labki\PageFormsInputs;
 use Labki\PageFormsInputs\Inputs\DateInput;
 use Labki\PageFormsInputs\Inputs\DatetimeInput;
 use Labki\PageFormsInputs\Inputs\TimeInput;
+use MediaWiki\Config\Config;
+use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\User\UserOptionsLookup;
 use MediaWiki\User\UserTimeCorrection;
 use OutputPage;
 use PFFormPrinter;
 use Skin;
+use User;
 
 class Hooks {
 
@@ -38,12 +42,40 @@ class Hooks {
 			return;
 		}
 
-		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$services = MediaWikiServices::getInstance();
+		$user = $out->getUser();
+		$vars = self::buildJsVars(
+			$services->getMainConfig(),
+			$services->getUserOptionsLookup(),
+			$user->isRegistered() ? $user : null
+		);
+		$out->addJsConfigVars( $vars );
+	}
+
+	/**
+	 * Build the mw.config var bag for the widget. Pure function of its inputs
+	 * so it can be unit-tested without an OutputPage.
+	 *
+	 * @internal Public for testability only; do not call from outside the extension.
+	 * @param Config $config
+	 * @param UserOptionsLookup $lookup
+	 * @param User|null $user Registered user, or null for anon/no preference plumbing
+	 * @return array<string,mixed>
+	 */
+	public static function buildJsVars(
+		Config $config,
+		UserOptionsLookup $lookup,
+		?User $user
+	): array {
 		$vars = [
 			'wgLabkiPageFormsInputsTime24h' => (bool)$config->get( 'LabkiPageFormsInputsTime24h' ),
 			'wgLabkiPageFormsInputsFirstDayOfWeek' => self::clampDayOfWeek(
 				$config->get( 'LabkiPageFormsInputsFirstDayOfWeek' )
 			),
+			// Plumbing $wgLocaltimezone lets the dropdown's "Wiki local" entry
+			// resolve to a real IANA zone — without it, picked values would
+			// serialize without an offset and silently mean UTC to SMW.
+			'wgLabkiPageFormsInputsWikiTz' => (string)$config->get( MainConfigNames::Localtimezone ),
 		];
 
 		$shortlist = self::normalizeShortlist( $config->get( 'LabkiPageFormsInputsTzShortlist' ) );
@@ -56,25 +88,32 @@ class Hooks {
 			$vars['wgLabkiPageFormsInputsDefaultTz'] = $defaultTz;
 		}
 
-		$user = $out->getUser();
-		if ( $user->isRegistered() ) {
-			$pref = (string)MediaWikiServices::getInstance()
-				->getUserOptionsLookup()
-				->getOption( $user, 'timecorrection' );
-			if ( $pref !== '' ) {
-				$utc = new UserTimeCorrection( $pref );
-				// Only ZoneInfo carries a real IANA name; Offset/System resolve
-				// to a numeric DateTimeZone the widget can't use DST-awarely.
-				if ( $utc->getCorrectionType() === UserTimeCorrection::ZONEINFO ) {
-					$tz = $utc->getTimeZone();
-					if ( $tz !== null ) {
-						$vars['wgLabkiPageFormsInputsUserTz'] = $tz->getName();
-					}
-				}
+		if ( $user !== null ) {
+			$userTz = self::resolveUserTz( $lookup, $user );
+			if ( $userTz !== null ) {
+				$vars['wgLabkiPageFormsInputsUserTz'] = $userTz;
 			}
 		}
 
-		$out->addJsConfigVars( $vars );
+		return $vars;
+	}
+
+	/**
+	 * Resolve a user's `timecorrection` preference to an IANA name.
+	 * Returns null unless the preference is ZoneInfo — Offset/System resolve
+	 * to numeric DateTimeZones that the widget can't use DST-awarely.
+	 */
+	private static function resolveUserTz( UserOptionsLookup $lookup, User $user ): ?string {
+		$pref = (string)$lookup->getOption( $user, 'timecorrection' );
+		if ( $pref === '' ) {
+			return null;
+		}
+		$utc = new UserTimeCorrection( $pref );
+		if ( $utc->getCorrectionType() !== UserTimeCorrection::ZONEINFO ) {
+			return null;
+		}
+		$tz = $utc->getTimeZone();
+		return $tz !== null ? $tz->getName() : null;
 	}
 
 	/**

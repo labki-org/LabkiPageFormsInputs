@@ -23,20 +23,27 @@
 		const timeEl = wrapper.querySelector( '[data-pf-target="time"]' );
 		const hidden = wrapper.querySelector( '.labki-pf-input-value' );
 
+		// Stored values carry a numeric offset but no IANA name; recover one
+		// so the dropdown reflects the saved zone instead of an unrelated
+		// fallback.
+		const recoveredTz = ( !state.tz && state.offset ) ?
+			helpers.resolveIanaFromOffset(
+				state.offset,
+				state.date,
+				[ cfg.userTz, cfg.defaultTz, cfg.wikiTz ]
+			) :
+			'';
+
 		const tzSel = helpers.buildTzSelect(
 			wrapper,
-			state.tz || cfg.userTz || cfg.defaultTz || ''
+			state.tz || recoveredTz || helpers.tzFallback( cfg )
 		);
 
 		function sync() {
-			const tz = tzSel ? tzSel.value : '';
-			// Picking an IANA zone always wins (DST-aware re-computation);
-			// otherwise preserve the originally-stored offset.
 			const next = {
 				date: helpers.formatDate( dateEl ),
 				time: helpers.formatTime( timeEl ),
-				tz: tz,
-				offset: tz ? '' : ( state.offset || '' )
+				tz: tzSel ? tzSel.value : ''
 			};
 			if ( hidden ) {
 				hidden.value = helpers.serializeValue( next );

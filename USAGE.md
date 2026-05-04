@@ -43,7 +43,7 @@ A visual sibling of `labki-datetime` for forms that mix date-only and datetime f
 {{{field|has_birthday|input type=labki-date}}}
 ```
 
-**Storage**: `YYYY-MM-DD`.
+**Storage**: `YYYY-MM-DD`. Pre-fill also accepts `YYYY/MM/DD`, the format used by PageForms' built-in `datepicker`, so switching a property from `datepicker` → `labki-date` keeps existing values visible without re-entry.
 
 ### `labki-time` — time + optional timezone (stored as Text)
 
@@ -86,9 +86,11 @@ All four knobs are optional; sensible defaults apply.
 
 ### `$wgLabkiPageFormsInputsTzShortlist`
 
-Per-wiki override for the curated timezone shortlist that appears at the top of the TZ dropdown. Pass an associative array `'IANA_name' => 'Display label'`. Use the empty string `''` to mean "wiki local" (no zone). Order is preserved.
+Per-wiki override for the curated timezone shortlist that appears at the top of the TZ dropdown. Pass an associative array `'IANA_name' => 'Display label'`. Order is preserved.
 
-**Default**: a 10-zone shortlist (`Wiki local`, US Pacific/Mountain/Central/Eastern, UTC, London, Madrid, Berlin, Tokyo).
+Use the empty string `''` to mean "wiki local"; the widget rewrites it to MediaWiki's `$wgLocaltimezone` at render time, so the dropdown carries a real IANA value (e.g. `America/Los_Angeles`) and saved values get a proper offset.
+
+**Default**: a 10-zone shortlist (`Wiki local (<your-tz>)`, US Pacific/Mountain/Central/Eastern, UTC, London, Madrid, Berlin, Tokyo).
 
 ```php
 // LocalSettings.php
@@ -121,7 +123,7 @@ $wgLabkiPageFormsInputsFirstDayOfWeek = 0;  // Sunday-first calendar
 
 ### `$wgLabkiPageFormsInputsDefaultTz`
 
-Fallback IANA timezone for users who don't have `timecorrection` set in their preferences. Useful for wikis with a known geographic context. Empty (default) means the widget falls back to "wiki local" with no zone preselected.
+Fallback IANA timezone for users who don't have `timecorrection` set in their preferences. Useful for wikis with a known geographic context. Empty (default) means the widget falls back to MediaWiki's `$wgLocaltimezone`.
 
 ```php
 $wgLabkiPageFormsInputsDefaultTz = 'America/Los_Angeles';
@@ -131,9 +133,9 @@ The selection precedence on a fresh form is:
 
 1. The user's `timecorrection` preference (when it's a `ZoneInfo|...|<IANA>` value)
 2. `$wgLabkiPageFormsInputsDefaultTz`
-3. Wiki-local (no zone)
+3. MediaWiki's `$wgLocaltimezone` (default `UTC`)
 
-A saved value's stored zone always wins over all of these when re-editing.
+When re-editing a saved value: a stored IANA name always wins. A stored numeric offset (no IANA) is matched best-effort against the user/default/wiki TZ candidates above; if one matches the offset on that date, it's preselected. Otherwise the dropdown falls back to the candidate chain — selecting a real zone before save.
 
 ## Wiki-wide override via SemanticSchemas
 

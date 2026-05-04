@@ -11,18 +11,36 @@ const vm = require( 'vm' );
 
 const ROOT = path.resolve( __dirname, '../..' );
 const SHARED = path.join( ROOT, 'resources/modules/ext.labki.shared.js' );
+const TZDATA = path.join( ROOT, 'resources/modules/ext.labki.tzData.js' );
 
-const sandbox = { mw: { labki: {} } };
-vm.createContext( sandbox );
-vm.runInContext( fs.readFileSync( SHARED, 'utf8' ), sandbox, { filename: SHARED } );
+// Build a sandbox with a minimal mw.config implementation so shared.js's
+// getConfig() and tzData.js's resolveShortlist() can read mock values.
+function makeSandbox( configValues ) {
+	const cfg = configValues || {};
+	const sandbox = {
+		mw: {
+			labki: {},
+			config: {
+				get: ( name ) => ( name in cfg ? cfg[ name ] : null )
+			}
+		}
+	};
+	vm.createContext( sandbox );
+	vm.runInContext( fs.readFileSync( SHARED, 'utf8' ), sandbox, { filename: SHARED } );
+	vm.runInContext( fs.readFileSync( TZDATA, 'utf8' ), sandbox, { filename: TZDATA } );
+	return sandbox;
+}
 
+const baseSandbox = makeSandbox();
 const {
 	parseValue,
 	serializeValue,
 	offsetFor,
 	parseTimeOnly,
-	serializeTimeOnly
-} = sandbox.mw.labki.pfInputs;
+	serializeTimeOnly,
+	resolveIanaFromOffset,
+	tzFallback
+} = baseSandbox.mw.labki.pfInputs;
 
 let pass = 0;
 let fail = 0;
@@ -59,6 +77,16 @@ check(
 	{ date: '2026-09-12', time: '14:30', tz: '', offset: '+00:00' }
 );
 check( 'parse empty', parseValue( '' ), { date: '', time: '', tz: '', offset: '' } );
+check(
+	'parse PF datepicker YYYY/MM/DD',
+	parseValue( '2026/05/14' ),
+	{ date: '2026-05-14', time: '', tz: '', offset: '' }
+);
+check(
+	'parse rejects unknown format',
+	parseValue( 'May 14, 2026' ),
+	{ date: '', time: '', tz: '', offset: '' }
+);
 
 // serializeValue
 check( 'serialize date-only', serializeValue( { date: '2026-09-12' } ), '2026-09-12' );
@@ -124,6 +152,113 @@ check( 'serializeTimeOnly empty', serializeTimeOnly( {} ), '' );
 check( 'serializeTimeOnly bare', serializeTimeOnly( { time: '14:30' } ), '14:30' );
 check( 'serializeTimeOnly with tz', serializeTimeOnly( { time: '14:30', tz: 'Europe/Madrid' } ), '14:30 Europe/Madrid' );
 check( 'serializeTimeOnly tz without time', serializeTimeOnly( { tz: 'Europe/Madrid' } ), '' );
+
+// tzFallback — per-wiki fallback chain (no state.tz layered on top here)
+check(
+	'tzFallback prefers userTz',
+	tzFallback( { userTz: 'Europe/Madrid', defaultTz: 'America/Los_Angeles', wikiTz: 'UTC' } ),
+	'Europe/Madrid'
+);
+check(
+	'tzFallback falls back to defaultTz',
+	tzFallback( { userTz: '', defaultTz: 'America/Los_Angeles', wikiTz: 'UTC' } ),
+	'America/Los_Angeles'
+);
+check(
+	'tzFallback falls back to wikiTz',
+	tzFallback( { userTz: '', defaultTz: '', wikiTz: 'America/New_York' } ),
+	'America/New_York'
+);
+check(
+	'tzFallback falls back to UTC',
+	tzFallback( { userTz: '', defaultTz: '', wikiTz: '' } ),
+	'UTC'
+);
+
+// resolveIanaFromOffset — best-effort recovery of stored IANA from offset
+check(
+	'resolveIanaFromOffset matches first candidate',
+	resolveIanaFromOffset( '-07:00', '2026-09-12', [ 'America/Los_Angeles', 'UTC' ] ),
+	'America/Los_Angeles'
+);
+check(
+	'resolveIanaFromOffset DST-aware (Dec PST)',
+	resolveIanaFromOffset( '-08:00', '2026-12-12', [ 'America/Los_Angeles' ] ),
+	'America/Los_Angeles'
+);
+check(
+	'resolveIanaFromOffset no match returns ""',
+	resolveIanaFromOffset( '+05:30', '2026-09-12', [ 'America/Los_Angeles', 'UTC' ] ),
+	''
+);
+check(
+	'resolveIanaFromOffset skips falsy candidates',
+	resolveIanaFromOffset( '+00:00', '2026-09-12', [ '', null, undefined, 'UTC' ] ),
+	'UTC'
+);
+check(
+	'resolveIanaFromOffset empty inputs',
+	resolveIanaFromOffset( '', '2026-09-12', [ 'UTC' ] ),
+	''
+);
+
+// getConfig — defaults applied when config keys absent
+( function () {
+	const cfg = makeSandbox( {} ).mw.labki.pfInputs.getConfig();
+	check( 'getConfig defaults: time24h', cfg.time24h, true );
+	check( 'getConfig defaults: firstDayOfWeek', cfg.firstDayOfWeek, 1 );
+	check( 'getConfig defaults: defaultTz', cfg.defaultTz, '' );
+	check( 'getConfig defaults: userTz', cfg.userTz, '' );
+	check( 'getConfig defaults: wikiTz=UTC', cfg.wikiTz, 'UTC' );
+}() );
+
+// getConfig — values read from mw.config
+( function () {
+	const cfg = makeSandbox( {
+		wgLabkiPageFormsInputsTime24h: false,
+		wgLabkiPageFormsInputsFirstDayOfWeek: 0,
+		wgLabkiPageFormsInputsDefaultTz: 'Europe/Madrid',
+		wgLabkiPageFormsInputsUserTz: 'America/Los_Angeles',
+		wgLabkiPageFormsInputsWikiTz: 'America/New_York'
+	} ).mw.labki.pfInputs.getConfig();
+	check( 'getConfig reads time24h', cfg.time24h, false );
+	check( 'getConfig reads firstDayOfWeek', cfg.firstDayOfWeek, 0 );
+	check( 'getConfig reads defaultTz', cfg.defaultTz, 'Europe/Madrid' );
+	check( 'getConfig reads userTz', cfg.userTz, 'America/Los_Angeles' );
+	check( 'getConfig reads wikiTz', cfg.wikiTz, 'America/New_York' );
+}() );
+
+// tzData — "Wiki local" entry rewritten to real wikiTz at load time
+( function () {
+	const tz = makeSandbox( { wgLabkiPageFormsInputsWikiTz: 'America/New_York' } )
+		.mw.labki.pfInputs.tz;
+	const wikiLocal = tz.SHORTLIST[ 0 ];
+	check( 'shortlist[0].id rewritten to wikiTz', wikiLocal.id, 'America/New_York' );
+	check(
+		'shortlist[0].label includes wikiTz',
+		wikiLocal.label.includes( 'America/New_York' ),
+		true
+	);
+}() );
+
+// tzData — wikiTz absent falls back to UTC
+( function () {
+	const tz = makeSandbox( {} ).mw.labki.pfInputs.tz;
+	check( 'shortlist[0].id falls back to UTC', tz.SHORTLIST[ 0 ].id, 'UTC' );
+}() );
+
+// tzData — custom override with empty id is also rewritten
+( function () {
+	const tz = makeSandbox( {
+		wgLabkiPageFormsInputsWikiTz: 'Europe/Berlin',
+		wgLabkiPageFormsInputsTzShortlist: [
+			{ id: '', label: 'Wiki local' },
+			{ id: 'UTC', label: 'UTC' }
+		]
+	} ).mw.labki.pfInputs.tz;
+	check( 'override empty-id rewritten', tz.SHORTLIST[ 0 ].id, 'Europe/Berlin' );
+	check( 'override real-id passthrough', tz.SHORTLIST[ 1 ].id, 'UTC' );
+}() );
 
 console.log( '' );
 console.log( pass + ' passed, ' + fail + ' failed' );

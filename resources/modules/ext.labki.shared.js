@@ -11,6 +11,9 @@
 	'use strict';
 
 	const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+	// Migration aid: PF's built-in `datepicker` saves YYYY/MM/DD, so a
+	// property switched from `datepicker` → `labki-*` pre-fills cleanly.
+	const SLASH_DATE = /^(\d{4})\/(\d{2})\/(\d{2})$/;
 	const ISO_DATETIME = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/;
 	const ISO_DATETIME_TZ = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?([+-]\d{2}:\d{2}|Z)$/;
 	const TIME_ONLY = /^(\d{2}:\d{2})(?:\s+(\S+))?$/;
@@ -41,6 +44,10 @@
 		m = str.match( ISO_DATE );
 		if ( m ) {
 			return { date: str, time: '', tz: '', offset: '' };
+		}
+		m = str.match( SLASH_DATE );
+		if ( m ) {
+			return { date: m[ 1 ] + '-' + m[ 2 ] + '-' + m[ 3 ], time: '', tz: '', offset: '' };
 		}
 		return empty;
 	}
@@ -175,21 +182,68 @@
 		return ( el.value || '' ).trim();
 	}
 
+	let configCache = null;
+
 	/**
-	 * Read the extension's mw.config knobs with defaults applied.
+	 * Read the extension's mw.config knobs with defaults applied. Memoized
+	 * because the values don't change after page load and forms with many
+	 * widgets call this once per init.
 	 *
-	 * @return {{ time24h: boolean, firstDayOfWeek: number, defaultTz: string, userTz: string }}
+	 * @return {{ time24h: boolean, firstDayOfWeek: number, defaultTz: string, userTz: string, wikiTz: string }}
 	 */
 	function getConfig() {
+		if ( configCache !== null ) {
+			return configCache;
+		}
 		const raw24h = mw.config.get( 'wgLabkiPageFormsInputsTime24h' );
 		const rawFdw = mw.config.get( 'wgLabkiPageFormsInputsFirstDayOfWeek' );
 		const fdw = parseInt( rawFdw, 10 );
-		return {
+		configCache = {
 			time24h: raw24h === null || raw24h === undefined ? true : !!raw24h,
 			firstDayOfWeek: ( fdw >= 0 && fdw <= 6 ) ? fdw : 1,
 			defaultTz: mw.config.get( 'wgLabkiPageFormsInputsDefaultTz' ) || '',
-			userTz: mw.config.get( 'wgLabkiPageFormsInputsUserTz' ) || ''
+			userTz: mw.config.get( 'wgLabkiPageFormsInputsUserTz' ) || '',
+			wikiTz: mw.config.get( 'wgLabkiPageFormsInputsWikiTz' ) || 'UTC'
 		};
+		return configCache;
+	}
+
+	/**
+	 * Per-wiki TZ fallback chain (no per-state info). Both widgets layer
+	 * `state.tz` (and datetime.js a recovered IANA from a stored offset) on
+	 * top of this — keeping the chain in one place avoids drift.
+	 *
+	 * @param {{ userTz: string, defaultTz: string, wikiTz: string }} cfg
+	 * @return {string}
+	 */
+	function tzFallback( cfg ) {
+		return cfg.userTz || cfg.defaultTz || cfg.wikiTz || 'UTC';
+	}
+
+	/**
+	 * Best-effort recovery of an IANA name from a stored offset. When a saved
+	 * value carries `+HH:MM` but no zone, scan candidates and pick the first
+	 * whose DST-aware offset on `dateStr` matches. Returns "" if none match.
+	 *
+	 * @param {string} offset e.g. "-07:00"
+	 * @param {string} dateStr "YYYY-MM-DD"
+	 * @param {Array<string>} candidates IANA names (may include "" / falsy entries)
+	 * @return {string}
+	 */
+	function resolveIanaFromOffset( offset, dateStr, candidates ) {
+		if ( !offset || !dateStr || !Array.isArray( candidates ) ) {
+			return '';
+		}
+		for ( let i = 0; i < candidates.length; i++ ) {
+			const tz = candidates[ i ];
+			if ( !tz ) {
+				continue;
+			}
+			if ( offsetFor( tz, dateStr ) === offset ) {
+				return tz;
+			}
+		}
+		return '';
 	}
 
 	let compactFragmentCache = null;
@@ -315,6 +369,8 @@
 	mw.labki.pfInputs.formatDate = formatDate;
 	mw.labki.pfInputs.formatTime = formatTime;
 	mw.labki.pfInputs.getConfig = getConfig;
+	mw.labki.pfInputs.tzFallback = tzFallback;
+	mw.labki.pfInputs.resolveIanaFromOffset = resolveIanaFromOffset;
 
 	// bfcache restore: PageForms' post-submit form state can prevent further
 	// saves. Set a flag on submit; reload only when the flag survives bfcache.
