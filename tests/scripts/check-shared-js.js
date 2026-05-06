@@ -201,6 +201,45 @@ check(
 	resolveIanaFromOffset( '', '2026-09-12', [ 'UTC' ] ),
 	''
 );
+// Regression: edit-page round-trip when the saved zone (Pacific) is *not*
+// in the user/default/wiki chain — the shortlist must be searched too,
+// otherwise the dropdown silently snaps back to "Wiki local".
+check(
+	'resolveIanaFromOffset finds shortlist zone outside user/default/wiki',
+	resolveIanaFromOffset(
+		'-07:00',
+		'2026-05-05',
+		[ '', '', 'UTC',
+			'UTC',
+			'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York' ]
+	),
+	'America/Los_Angeles'
+);
+// Regression: saved zone (Asia/Kolkata, +05:30) is outside both the
+// user/default/wiki chain *and* the SHORTLIST — must fall through to the
+// full IANA list so the offset isn't lost on edit. The match might be a
+// sibling alias (Calcutta vs Kolkata), so we just assert the recovered
+// zone produces the right offset on the anchor date rather than pinning
+// a specific name.
+( function () {
+	const recovered = resolveIanaFromOffset(
+		'+05:30',
+		'2026-05-05',
+		[ '', '', 'UTC' ].concat( [
+			'America/Los_Angeles', 'America/Denver', 'America/Chicago',
+			'America/New_York', 'UTC', 'Europe/London', 'Europe/Madrid',
+			'Europe/Berlin', 'Asia/Tokyo'
+		] ).concat( [
+			// stand-in for Intl.supportedValuesOf( 'timeZone' )
+			'Asia/Calcutta', 'Asia/Kolkata', 'Asia/Colombo'
+		] )
+	);
+	check(
+		'resolveIanaFromOffset falls through to all-IANA tier',
+		offsetFor( recovered, '2026-05-05' ),
+		'+05:30'
+	);
+}() );
 
 // getConfig — defaults applied when config keys absent
 ( function () {
