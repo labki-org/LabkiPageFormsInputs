@@ -358,6 +358,63 @@
 		return sel;
 	}
 
+	/**
+	 * Wire a widget's per-wrapper init callback into all the lifecycle events
+	 * that can introduce labki-pf wrappers into the DOM. Centralizes three
+	 * concerns the per-widget files used to repeat:
+	 *
+	 *   1. `wikipage.content` — for content re-rendered after page load
+	 *      (preview, VisualEditor section reload, etc.).
+	 *   2. `pf.addTemplateInstance` — fired by PageForms.js:1462 with the new
+	 *      `.multipleTemplateInstance` jQuery selection when a user clicks
+	 *      "Add another" on a multi-instance / subobject template.
+	 *   3. DOM-ready — the initial pre-rendered wrappers on the form.
+	 *
+	 * Wrappers inside a `.multipleTemplateStarter` (PF's hidden cloning
+	 * template) are skipped: initializing flatpickr on a starter would attach
+	 * a calendar popup and `_flatpickr` element-property reference that
+	 * cloneNode() can't copy, leaving every cloned instance with a dead
+	 * picker. Skipping starters keeps the cloned row pristine; the
+	 * `pf.addTemplateInstance` hook then runs init fresh on the live clone.
+	 *
+	 * @param {string} selector e.g. ".labki-pf-input-datetime"
+	 * @param {(el: HTMLElement) => void} initFn per-wrapper initializer
+	 */
+	function initAll( selector, initFn ) {
+		function scan( root ) {
+			if ( !root || typeof root.querySelectorAll !== 'function' ) {
+				return;
+			}
+			// `pf.addTemplateInstance` passes the new instance div itself —
+			// the wrapper can be the root, not a descendant.
+			if ( typeof root.matches === 'function' &&
+				root.matches( selector ) &&
+				!root.closest( '.multipleTemplateStarter' ) ) {
+				initFn( root );
+			}
+			root.querySelectorAll( selector ).forEach( function ( el ) {
+				if ( el.closest( '.multipleTemplateStarter' ) ) {
+					return;
+				}
+				initFn( el );
+			} );
+		}
+
+		mw.hook( 'wikipage.content' ).add( function ( $content ) {
+			$content.each( function () {
+				scan( this );
+			} );
+		} );
+		mw.hook( 'pf.addTemplateInstance' ).add( function ( $newInstance ) {
+			$newInstance.each( function () {
+				scan( this );
+			} );
+		} );
+		$( function () {
+			scan( document );
+		} );
+	}
+
 	mw.labki = mw.labki || {};
 	mw.labki.pfInputs = mw.labki.pfInputs || {};
 	mw.labki.pfInputs.parseValue = parseValue;
@@ -371,6 +428,7 @@
 	mw.labki.pfInputs.getConfig = getConfig;
 	mw.labki.pfInputs.tzFallback = tzFallback;
 	mw.labki.pfInputs.resolveIanaFromOffset = resolveIanaFromOffset;
+	mw.labki.pfInputs.initAll = initAll;
 
 	// bfcache restore: PageForms' post-submit form state can prevent further
 	// saves. Set a flag on submit; reload only when the flag survives bfcache.

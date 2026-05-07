@@ -299,6 +299,137 @@ check(
 	check( 'override real-id passthrough', tz.SHORTLIST[ 1 ].id, 'UTC' );
 }() );
 
+// initAll — multi-instance / subobject support. Uses a hand-rolled DOM and
+// hook stubs (avoids a JSDOM dependency for one helper).
+( function () {
+	const SELECTOR = '.labki-pf-input-datetime';
+	const STARTER = 'multipleTemplateStarter';
+
+	function makeNode( opts ) {
+		const node = {
+			classList: new Set( opts.classes || [] ),
+			children: [],
+			parent: null,
+			matchSelector: opts.matchSelector || ''
+		};
+		node.matches = ( sel ) => node.matchSelector === sel;
+		node.closest = ( sel ) => {
+			let cur = node;
+			while ( cur ) {
+				const cls = sel.replace( /^\./, '' );
+				if ( cur.classList && cur.classList.has( cls ) ) {
+					return cur;
+				}
+				cur = cur.parent;
+			}
+			return null;
+		};
+		node.querySelectorAll = ( sel ) => {
+			const out = [];
+			function walk( n ) {
+				n.children.forEach( ( c ) => {
+					if ( c.matches( sel ) ) {
+						out.push( c );
+					}
+					walk( c );
+				} );
+			}
+			walk( node );
+			return out;
+		};
+		node.appendChild = ( c ) => {
+			c.parent = node;
+			node.children.push( c );
+			return c;
+		};
+		return node;
+	}
+
+	const hooks = {};
+	const fakeMw = {
+		labki: {},
+		config: { get: () => null },
+		hook: ( name ) => ( {
+			add: ( fn ) => {
+				hooks[ name ] = hooks[ name ] || [];
+				hooks[ name ].push( fn );
+			},
+			fire: ( arg ) => ( hooks[ name ] || [] ).forEach( ( fn ) => fn( arg ) )
+		} )
+	};
+	let domReadyFn = null;
+	const fake$ = function ( arg ) {
+		if ( typeof arg === 'function' ) {
+			domReadyFn = arg;
+			return;
+		}
+		// Treat `arg` as an array-like; provide .each().
+		const list = Array.isArray( arg ) ? arg : [ arg ];
+		return {
+			each: function ( fn ) {
+				list.forEach( ( item, i ) => fn.call( item, i, item ) );
+			}
+		};
+	};
+
+	const sandbox = { mw: fakeMw, $: fake$, document: makeNode( {} ) };
+	vm.createContext( sandbox );
+	vm.runInContext( fs.readFileSync( SHARED, 'utf8' ), sandbox, { filename: SHARED } );
+
+	// Build a DOM:
+	//   document
+	//   ├─ .multipleTemplateStarter
+	//   │   └─ wrapper#starter   (matches selector — must be skipped)
+	//   └─ .multipleTemplateInstance
+	//       └─ wrapper#existing  (matches — must init on DOM-ready)
+	const initialized = [];
+	const starterParent = makeNode( { classes: [ 'multipleTemplateStarter' ] } );
+	const starterWrap = makeNode( { matchSelector: SELECTOR } );
+	starterWrap.id = 'starter';
+	starterParent.appendChild( starterWrap );
+
+	const instanceParent = makeNode( { classes: [ 'multipleTemplateInstance' ] } );
+	const existingWrap = makeNode( { matchSelector: SELECTOR } );
+	existingWrap.id = 'existing';
+	instanceParent.appendChild( existingWrap );
+
+	sandbox.document.appendChild( starterParent );
+	sandbox.document.appendChild( instanceParent );
+
+	sandbox.mw.labki.pfInputs.initAll( SELECTOR, ( el ) => initialized.push( el.id ) );
+
+	// Trigger DOM-ready and existing-content hook.
+	if ( domReadyFn ) {
+		domReadyFn();
+	}
+	check( 'initAll: skips wrappers inside .multipleTemplateStarter on DOM-ready',
+		initialized.includes( 'starter' ), false );
+	check( 'initAll: inits existing wrappers on DOM-ready',
+		initialized.includes( 'existing' ), true );
+
+	// Simulate "Add another" click — PF clones the starter into a new instance.
+	const newInstance = makeNode( { classes: [ 'multipleTemplateInstance' ] } );
+	const clonedWrap = makeNode( { matchSelector: SELECTOR } );
+	clonedWrap.id = 'cloned';
+	newInstance.appendChild( clonedWrap );
+	// PF appends to the form *before* firing the hook.
+	sandbox.document.appendChild( newInstance );
+
+	fakeMw.hook( 'pf.addTemplateInstance' ).fire( fake$( newInstance ) );
+	check( 'initAll: pf.addTemplateInstance triggers init on cloned wrapper',
+		initialized.includes( 'cloned' ), true );
+
+	// Re-firing must not double-init (idempotency relies on caller's guard,
+	// but initAll itself shouldn't re-walk the same node multiple times when
+	// the user holds Ctrl-clicks Add another, etc.). Sanity-check the order
+	// stays stable.
+	const before = initialized.length;
+	fakeMw.hook( 'pf.addTemplateInstance' ).fire( fake$( newInstance ) );
+	check( 'initAll: re-firing pf.addTemplateInstance calls initFn again ' +
+		'(caller is responsible for idempotency)',
+		initialized.length, before + 1 );
+}() );
+
 console.log( '' );
 console.log( pass + ' passed, ' + fail + ' failed' );
 process.exit( fail ? 1 : 0 );

@@ -66,13 +66,5 @@
 		sync();
 	}
 
-	mw.hook( 'wikipage.content' ).add( function ( $content ) {
-		$content.find( '.labki-pf-input-time' ).each( function () {
-			initWrapper( this );
-		} );
-	} );
-
-	$( function () {
-		document.querySelectorAll( '.labki-pf-input-time' ).forEach( initWrapper );
-	} );
+	mw.labki.pfInputs.initAll( '.labki-pf-input-time', initWrapper );
 }() );
