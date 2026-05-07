@@ -19,3 +19,189 @@
 		max-width: 16em;
 	}
 }
+
+/* === Dark-mode overrides ===
+   The bundled `flatpickr.min.css` paints the calendar popup and the
+   visible date/time/tz input fields with hardcoded `#fff` / `#393939`
+   surfaces — readable in light mode, but bright pills on a dark page.
+   We paint dark variants when EITHER of the two standard color-mode
+   signals is set on <html>:
+     - `[data-bs-theme="dark"]` — Bootstrap 5.3's color-mode attribute,
+       used by any BS5.3-based skin (labki-platform's tweeki, others).
+     - `.skin-theme-clientpref-night` — MediaWiki's canonical class.
+   Either signal applies the override; labki-platform stamps both.
+   Tokens (`--labki-*`) are consulted with hex fallbacks so the rule
+   degrades gracefully when the extension is used outside Labki.
+   Selectors target the flatpickr-portaled `.flatpickr-calendar` (which
+   renders directly under <body>, so #content-scoped skin rules don't
+   reach it) and the in-form `.labki-pf-{date,time}` inputs themselves
+   (covering the case where a skin doesn't already paint
+   `input[type="text"]` for dark mode). */
+[data-bs-theme="dark"],
+.skin-theme-clientpref-night {
+	/* Visible input fields. */
+	.labki-pf-date,
+	.labki-pf-time,
+	.labki-pf-tz-select {
+		background-color: var(--labki-bg-subtle, #2c3033);
+		color: var(--labki-text, #e9ecef);
+		border-color: var(--labki-border, #495057);
+	}
+
+	/* Calendar popup body + arrow notch. The default uses #fff for
+	   the body and #e6e6e6 for the 1px outline-shadow; we re-tint
+	   both, matching the after/before arrow tip colors so the notch
+	   stays continuous with the body. */
+	.flatpickr-calendar {
+		background: var(--labki-bg-subtle, #2c3033);
+		color: var(--labki-text, #e9ecef);
+		box-shadow:
+			1px 0 0 var(--labki-border, #495057),
+			-1px 0 0 var(--labki-border, #495057),
+			0 1px 0 var(--labki-border, #495057),
+			0 -1px 0 var(--labki-border, #495057),
+			0 3px 13px rgba(0, 0, 0, 0.4);
+	}
+
+	.flatpickr-calendar.arrowTop:before { border-bottom-color: var(--labki-border, #495057); }
+	.flatpickr-calendar.arrowTop:after  { border-bottom-color: var(--labki-bg-subtle, #2c3033); }
+	.flatpickr-calendar.arrowBottom:before { border-top-color: var(--labki-border, #495057); }
+	.flatpickr-calendar.arrowBottom:after  { border-top-color: var(--labki-bg-subtle, #2c3033); }
+
+	/* Month nav row: text + chevron arrows. */
+	.flatpickr-months .flatpickr-month,
+	.flatpickr-current-month input.cur-year {
+		color: var(--labki-text, #e9ecef);
+		fill: var(--labki-text, #e9ecef);
+	}
+
+	.flatpickr-months .flatpickr-prev-month,
+	.flatpickr-months .flatpickr-next-month {
+		color: var(--labki-text, #e9ecef);
+		fill: var(--labki-text, #e9ecef);
+
+		&:hover svg { fill: var(--labki-accent, #6ea8fe); }
+	}
+
+	.flatpickr-current-month .flatpickr-monthDropdown-months {
+		background: var(--labki-bg-subtle, #2c3033);
+		color: var(--labki-text, #e9ecef);
+	}
+
+	.flatpickr-current-month .flatpickr-monthDropdown-months .flatpickr-monthDropdown-month {
+		background: var(--labki-bg-subtle, #2c3033);
+	}
+
+	/* Weekday header row + week-numbers column. */
+	.flatpickr-weekdays,
+	span.flatpickr-weekday {
+		background: var(--labki-bg-subtle, #2c3033);
+		color: var(--labki-text-muted, #adb5bd);
+	}
+
+	.flatpickr-weekwrapper .flatpickr-weeks { box-shadow: 1px 0 0 var(--labki-border, #495057); }
+	.flatpickr-weekwrapper span.flatpickr-day,
+	.flatpickr-weekwrapper span.flatpickr-day:hover {
+		color: var(--labki-text-muted, #adb5bd);
+		background: transparent;
+		border: none;
+	}
+
+	/* Day cells: default, hover, today, selected, in-range, disabled. */
+	.flatpickr-day {
+		color: var(--labki-text, #e9ecef);
+
+		&:hover,
+		&:focus,
+		&.prevMonthDay:hover,
+		&.nextMonthDay:hover {
+			background: var(--labki-border, #495057);
+			border-color: var(--labki-border, #495057);
+			color: var(--labki-text, #e9ecef);
+		}
+	}
+
+	.flatpickr-day.today {
+		border-color: var(--labki-accent, #6ea8fe);
+
+		&:hover,
+		&:focus {
+			background: var(--labki-accent, #6ea8fe);
+			border-color: var(--labki-accent, #6ea8fe);
+			color: #fff;
+		}
+	}
+
+	.flatpickr-day.selected,
+	.flatpickr-day.startRange,
+	.flatpickr-day.endRange,
+	.flatpickr-day.selected.inRange,
+	.flatpickr-day.startRange.inRange,
+	.flatpickr-day.endRange.inRange,
+	.flatpickr-day.selected:focus,
+	.flatpickr-day.startRange:focus,
+	.flatpickr-day.endRange:focus,
+	.flatpickr-day.selected:hover,
+	.flatpickr-day.startRange:hover,
+	.flatpickr-day.endRange:hover {
+		background: var(--labki-accent, #6ea8fe);
+		border-color: var(--labki-accent, #6ea8fe);
+		color: #fff;
+	}
+
+	.flatpickr-day.inRange {
+		background: var(--labki-border, #495057);
+		border-color: var(--labki-border, #495057);
+		box-shadow:
+			-5px 0 0 var(--labki-border, #495057),
+			5px 0 0 var(--labki-border, #495057);
+	}
+
+	.flatpickr-day.flatpickr-disabled,
+	.flatpickr-day.flatpickr-disabled:hover,
+	.flatpickr-day.prevMonthDay,
+	.flatpickr-day.nextMonthDay,
+	.flatpickr-day.notAllowed,
+	.flatpickr-day.notAllowed.prevMonthDay,
+	.flatpickr-day.notAllowed.nextMonthDay {
+		color: var(--labki-text-muted, #6c757d);
+		background: transparent;
+		border-color: transparent;
+	}
+
+	/* Time picker (bottom of calendar; also reused for time-only). */
+	.flatpickr-time {
+		border-top: 1px solid var(--labki-border, #495057);
+		background: var(--labki-bg-subtle, #2c3033);
+
+		input,
+		.flatpickr-time-separator,
+		.flatpickr-am-pm {
+			color: var(--labki-text, #e9ecef);
+			background: var(--labki-bg-subtle, #2c3033);
+		}
+
+		input:hover,
+		input:focus,
+		.flatpickr-am-pm:hover,
+		.flatpickr-am-pm:focus {
+			background: var(--labki-border, #495057);
+		}
+	}
+
+	/* Number-input arrow chevrons (year, hour, minute spinners). The
+	   default `border-{bottom,top}-color: rgba(0,0,0,0.9)` reads as
+	   black on dark; lift to text token. */
+	.flatpickr-current-month .numInputWrapper span.arrowUp:after,
+	.flatpickr-time .numInputWrapper span.arrowUp:after {
+		border-bottom-color: var(--labki-text, #e9ecef);
+	}
+	.flatpickr-current-month .numInputWrapper span.arrowDown:after,
+	.flatpickr-time .numInputWrapper span.arrowDown:after {
+		border-top-color: var(--labki-text, #e9ecef);
+	}
+
+	.numInputWrapper:hover { background: rgba(255, 255, 255, 0.05); }
+	.numInputWrapper span:hover  { background: rgba(255, 255, 255, 0.10); }
+	.numInputWrapper span:active { background: rgba(255, 255, 255, 0.15); }
+}
