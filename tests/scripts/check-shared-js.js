@@ -55,6 +55,105 @@ function check( label, got, want ) {
 	ok ? pass++ : fail++;
 }
 
+/**
+ * Hand-rolled DOM stub. Supports the subset our widget JS uses:
+ *
+ *   matches: `.cls` and `[attr="value"]`
+ *   closest: walks up `.parent` chain
+ *   querySelector(All): recursive tree walk using matches()
+ *   appendChild: sets child.parent and pushes to children[]
+ *   dataset: Proxy backed by attrs[ "data-foo" ]
+ *   getAttribute / setAttribute / hasAttribute
+ *   addEventListener / dispatchEvent: list-based, ignores capture/options
+ *
+ * Deliberately not using JSDOM — the repo has no node_modules and we want
+ * to keep CI dependency-free. Trade-off: must hand-roll any new DOM API
+ * the widgets start using.
+ */
+function makeNode( opts ) {
+	opts = opts || {};
+	const attrs = Object.assign( {}, opts.attrs || {} );
+	const node = {
+		tagName: ( opts.tagName || 'div' ).toUpperCase(),
+		classList: new Set( opts.classes || [] ),
+		children: [],
+		parent: null,
+		value: opts.value !== undefined ? opts.value : '',
+		_attrs: attrs,
+		_listeners: {}
+	};
+	function camelToKebab( s ) {
+		return s.replace( /([A-Z])/g, '-$1' ).toLowerCase();
+	}
+	function matchesSelector( n, sel ) {
+		let m = sel.match( /^\.([\w-]+)$/ );
+		if ( m ) {
+			return n.classList && n.classList.has( m[ 1 ] );
+		}
+		m = sel.match( /^\[([\w-]+)="([^"]*)"\]$/ );
+		if ( m ) {
+			return n._attrs && n._attrs[ m[ 1 ] ] === m[ 2 ];
+		}
+		return false;
+	}
+	Object.defineProperty( node, 'dataset', {
+		get: () => new Proxy( {}, {
+			get( _, p ) {
+				return attrs[ 'data-' + camelToKebab( p ) ];
+			},
+			set( _, p, v ) {
+				attrs[ 'data-' + camelToKebab( p ) ] = String( v );
+				return true;
+			}
+		} )
+	} );
+	node.getAttribute = ( n ) => ( attrs[ n ] !== undefined ? attrs[ n ] : null );
+	node.setAttribute = ( n, v ) => {
+		attrs[ n ] = String( v );
+	};
+	node.hasAttribute = ( n ) => attrs[ n ] !== undefined;
+	node.matches = ( sel ) => matchesSelector( node, sel );
+	node.closest = ( sel ) => {
+		let cur = node;
+		while ( cur ) {
+			if ( cur.matches && cur.matches( sel ) ) {
+				return cur;
+			}
+			cur = cur.parent;
+		}
+		return null;
+	};
+	node.querySelectorAll = ( sel ) => {
+		const out = [];
+		( function walk( n ) {
+			n.children.forEach( ( c ) => {
+				if ( c.matches && c.matches( sel ) ) {
+					out.push( c );
+				}
+				walk( c );
+			} );
+		}( node ) );
+		return out;
+	};
+	node.querySelector = ( sel ) => {
+		const all = node.querySelectorAll( sel );
+		return all.length > 0 ? all[ 0 ] : null;
+	};
+	node.appendChild = ( c ) => {
+		c.parent = node;
+		node.children.push( c );
+		return c;
+	};
+	node.addEventListener = ( type, fn ) => {
+		( node._listeners[ type ] = node._listeners[ type ] || [] ).push( fn );
+	};
+	node.dispatchEvent = ( ev ) => {
+		( node._listeners[ ev.type ] || [] ).forEach( ( fn ) => fn( ev ) );
+		return true;
+	};
+	return node;
+}
+
 // parseValue — round-trip from stored wikitext into widget state
 check(
 	'parse date-only',
@@ -299,51 +398,11 @@ check(
 	check( 'override real-id passthrough', tz.SHORTLIST[ 1 ].id, 'UTC' );
 }() );
 
-// initAll — multi-instance / subobject support. Uses a hand-rolled DOM and
-// hook stubs (avoids a JSDOM dependency for one helper).
+// initAll — multi-instance / subobject support. Uses the module-level
+// makeNode DOM stub plus hook/dom-ready stubs (avoids a JSDOM dependency).
 ( function () {
 	const SELECTOR = '.labki-pf-input-datetime';
-	const STARTER = 'multipleTemplateStarter';
-
-	function makeNode( opts ) {
-		const node = {
-			classList: new Set( opts.classes || [] ),
-			children: [],
-			parent: null,
-			matchSelector: opts.matchSelector || ''
-		};
-		node.matches = ( sel ) => node.matchSelector === sel;
-		node.closest = ( sel ) => {
-			let cur = node;
-			while ( cur ) {
-				const cls = sel.replace( /^\./, '' );
-				if ( cur.classList && cur.classList.has( cls ) ) {
-					return cur;
-				}
-				cur = cur.parent;
-			}
-			return null;
-		};
-		node.querySelectorAll = ( sel ) => {
-			const out = [];
-			function walk( n ) {
-				n.children.forEach( ( c ) => {
-					if ( c.matches( sel ) ) {
-						out.push( c );
-					}
-					walk( c );
-				} );
-			}
-			walk( node );
-			return out;
-		};
-		node.appendChild = ( c ) => {
-			c.parent = node;
-			node.children.push( c );
-			return c;
-		};
-		return node;
-	}
+	const WRAPPER_CLASS = 'labki-pf-input-datetime';
 
 	const hooks = {};
 	const fakeMw = {
@@ -384,12 +443,12 @@ check(
 	//       └─ wrapper#existing  (matches — must init on DOM-ready)
 	const initialized = [];
 	const starterParent = makeNode( { classes: [ 'multipleTemplateStarter' ] } );
-	const starterWrap = makeNode( { matchSelector: SELECTOR } );
+	const starterWrap = makeNode( { classes: [ WRAPPER_CLASS ] } );
 	starterWrap.id = 'starter';
 	starterParent.appendChild( starterWrap );
 
 	const instanceParent = makeNode( { classes: [ 'multipleTemplateInstance' ] } );
-	const existingWrap = makeNode( { matchSelector: SELECTOR } );
+	const existingWrap = makeNode( { classes: [ WRAPPER_CLASS ] } );
 	existingWrap.id = 'existing';
 	instanceParent.appendChild( existingWrap );
 
@@ -409,7 +468,7 @@ check(
 
 	// Simulate "Add another" click — PF clones the starter into a new instance.
 	const newInstance = makeNode( { classes: [ 'multipleTemplateInstance' ] } );
-	const clonedWrap = makeNode( { matchSelector: SELECTOR } );
+	const clonedWrap = makeNode( { classes: [ WRAPPER_CLASS ] } );
 	clonedWrap.id = 'cloned';
 	newInstance.appendChild( clonedWrap );
 	// PF appends to the form *before* firing the hook.
@@ -428,6 +487,166 @@ check(
 	check( 'initAll: re-firing pf.addTemplateInstance calls initFn again ' +
 		'(caller is responsible for idempotency)',
 		initialized.length, before + 1 );
+}() );
+
+// Full widget pipeline — loads ext.labki.date.js into a stub-DOM sandbox
+// and drives it through the multi-instance lifecycle to lock in the user-
+// reported regressions:
+//
+//   (a) hidden cloning template (.multipleTemplateStarter) must NOT be
+//       initialized — otherwise the cloned row inherits a dead listener
+//       set;
+//   (b) existing pre-rendered instances must be initialized on DOM-ready
+//       and have their hidden submit input seeded by sync();
+//   (c) clones added via "Add another" (mw.hook( 'pf.addTemplateInstance' ))
+//       must be initialized;
+//   (d) typing into the cloned input must update the hidden input PageForms
+//       actually submits — this is the silent-data-loss path the user hit.
+//
+// Tests the bare-input branch (window.flatpickr is left undefined). The
+// flatpickr branch is library code we don't own; integration testing it
+// would need a real browser. The bare-input branch is what powers manual
+// typing, which was the third symptom and the most important one.
+( function () {
+	const DATE_JS = path.join( ROOT, 'resources/modules/ext.labki.date.js' );
+	const SELECTOR = '.labki-pf-input-date';
+	const WRAPPER_CLASS = 'labki-pf-input-date';
+
+	const hooks = {};
+	const fakeMw = {
+		labki: {},
+		config: { get: () => null },
+		hook: ( name ) => ( {
+			add: ( fn ) => {
+				( hooks[ name ] = hooks[ name ] || [] ).push( fn );
+			},
+			fire: ( arg ) => ( hooks[ name ] || [] ).forEach( ( fn ) => fn( arg ) )
+		} )
+	};
+	let domReadyFn = null;
+	const fake$ = function ( arg ) {
+		if ( typeof arg === 'function' ) {
+			domReadyFn = arg;
+			return;
+		}
+		const list = Array.isArray( arg ) ? arg : [ arg ];
+		return {
+			each: function ( fn ) {
+				list.forEach( ( item, i ) => fn.call( item, i, item ) );
+			}
+		};
+	};
+
+	// Minimal window stub: widget code probes `typeof window.flatpickr` to
+	// pick the bare-input branch, and shared.js's bfcache helper at the
+	// bottom registers a `pageshow` listener via `window.addEventListener`.
+	// Leaving flatpickr undefined keeps us on the bare-input path (which is
+	// the path that handles manual typing — the third reported symptom).
+	const fakeWindow = {
+		flatpickr: undefined,
+		addEventListener: () => {}
+	};
+	const sandbox = {
+		mw: fakeMw,
+		$: fake$,
+		window: fakeWindow,
+		document: makeNode( {} )
+	};
+	vm.createContext( sandbox );
+	vm.runInContext( fs.readFileSync( SHARED, 'utf8' ), sandbox, { filename: SHARED } );
+	vm.runInContext( fs.readFileSync( TZDATA, 'utf8' ), sandbox, { filename: TZDATA } );
+	vm.runInContext( fs.readFileSync( DATE_JS, 'utf8' ), sandbox, { filename: DATE_JS } );
+
+	function buildWrapper( id, initial ) {
+		const wrap = makeNode( {
+			classes: [ WRAPPER_CLASS ],
+			attrs: initial !== undefined ? { 'data-pf-initial': initial } : {}
+		} );
+		wrap.id = id;
+		wrap.appendChild( makeNode( {
+			tagName: 'input',
+			attrs: { 'data-pf-target': 'date' }
+		} ) );
+		wrap.appendChild( makeNode( {
+			tagName: 'input',
+			classes: [ 'labki-pf-input-value' ]
+		} ) );
+		return wrap;
+	}
+
+	const starter = makeNode( { classes: [ 'multipleTemplateStarter' ] } );
+	starter.appendChild( buildWrapper( 'starter' ) );
+
+	const existing = makeNode( { classes: [ 'multipleTemplateInstance' ] } );
+	existing.appendChild( buildWrapper( 'existing', '2026-01-15' ) );
+
+	sandbox.document.appendChild( starter );
+	sandbox.document.appendChild( existing );
+
+	// Trigger DOM-ready: initAll registered the handler when date.js loaded.
+	if ( domReadyFn ) {
+		domReadyFn();
+	}
+
+	const starterWrap = starter.children[ 0 ];
+	const existingWrap = existing.children[ 0 ];
+
+	// (a) Starter must not be initialized.
+	check( 'date pipeline: starter wrapper NOT initialized on DOM-ready',
+		starterWrap.dataset.labkiInit, undefined );
+	const starterHidden = starterWrap.querySelector( '.labki-pf-input-value' );
+	check( 'date pipeline: starter\'s hidden input untouched',
+		starterHidden.value, '' );
+
+	// (b) Existing instance is initialized and its hidden field seeded.
+	check( 'date pipeline: existing instance IS initialized on DOM-ready',
+		existingWrap.dataset.labkiInit, '1' );
+	const existingHidden = existingWrap.querySelector( '.labki-pf-input-value' );
+	check( 'date pipeline: existing instance hidden input seeded from data-pf-initial',
+		existingHidden.value, '2026-01-15' );
+
+	// (c) "Add another" — PF clones the starter into a fresh instance,
+	// rewrites IDs/names, then fires pf.addTemplateInstance($newDiv).
+	const newInstance = makeNode( { classes: [ 'multipleTemplateInstance' ] } );
+	newInstance.appendChild( buildWrapper( 'cloned' ) );
+	sandbox.document.appendChild( newInstance );
+
+	fakeMw.hook( 'pf.addTemplateInstance' ).fire( fake$( newInstance ) );
+
+	const clonedWrap = newInstance.children[ 0 ];
+	check( 'date pipeline: cloned wrapper IS initialized after pf.addTemplateInstance',
+		clonedWrap.dataset.labkiInit, '1' );
+
+	// (d) The silent-data-loss path: typing into the cloned input must
+	// update the hidden field PageForms submits. Pre-fix, this assertion
+	// would have failed because the change/input listeners that drive
+	// sync() were never attached on the clone.
+	const clonedDateInput = clonedWrap.querySelector( '[data-pf-target="date"]' );
+	const clonedHidden = clonedWrap.querySelector( '.labki-pf-input-value' );
+	check( 'date pipeline: cloned hidden input starts empty (no data-pf-initial)',
+		clonedHidden.value, '' );
+
+	clonedDateInput.value = '2026-07-01';
+	clonedDateInput.dispatchEvent( { type: 'change' } );
+	check( 'date pipeline: typing on cloned input syncs through to hidden field',
+		clonedHidden.value, '2026-07-01' );
+
+	// `input` event path (e.g., autofill, IME composition end) — same wiring.
+	clonedDateInput.value = '2026-08-15';
+	clonedDateInput.dispatchEvent( { type: 'input' } );
+	check( 'date pipeline: \'input\' event also syncs through',
+		clonedHidden.value, '2026-08-15' );
+
+	// Idempotency: re-firing pf.addTemplateInstance on the same node must
+	// not double-attach listeners (would otherwise be a memory leak per
+	// "Add another" click). Verified by counting listener invocations: a
+	// single dispatch of 'change' should write once. The widget's per-
+	// wrapper guard (data-labki-init) handles this; we just smoke-test it
+	// here so a future refactor that drops the guard would fail loudly.
+	fakeMw.hook( 'pf.addTemplateInstance' ).fire( fake$( newInstance ) );
+	const listenerCount = clonedDateInput._listeners.change.length;
+	check( 'date pipeline: re-fire does NOT double-attach \'change\' listener',
+		listenerCount, 1 );
 }() );
 
 console.log( '' );
