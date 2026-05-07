@@ -43,13 +43,5 @@
 		sync();
 	}
 
-	mw.hook( 'wikipage.content' ).add( function ( $content ) {
-		$content.find( '.labki-pf-input-date' ).each( function () {
-			initWrapper( this );
-		} );
-	} );
-
-	$( function () {
-		document.querySelectorAll( '.labki-pf-input-date' ).forEach( initWrapper );
-	} );
+	mw.labki.pfInputs.initAll( '.labki-pf-input-date', initWrapper );
 }() );
